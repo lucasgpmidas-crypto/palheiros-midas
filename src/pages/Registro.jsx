@@ -75,11 +75,11 @@ export default function Registro() {
             </select>
           </div>
           <div className="fg" style={{ margin: 0 }}>
-            <label>Qtd. Produzida</label>
-            <input type="number" min="0" placeholder="Ex: 3000" value={form.qty} onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} />
+            <label>Palheiros Produzidos</label>
+            <input type="number" min="0" placeholder="Ex: 7500" value={form.qty} onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} />
           </div>
           <div className="fg" style={{ margin: 0 }}>
-            <label>Qtd. Aproveitada</label>
+            <label>Palheiros Aproveitados</label>
             <input type="number" min="0" placeholder="Opcional" value={form.aprov} onChange={e => setForm(f => ({ ...f, aprov: e.target.value }))} />
           </div>
           <div className="fg" style={{ margin: 0 }}>
@@ -90,17 +90,31 @@ export default function Registro() {
             {saving ? '...' : '✓ Registrar'}
           </button>
         </div>
-        {previewQty > 0 && (
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', background: 'var(--bg3)', borderRadius: 'var(--rs)', padding: '8px 14px', fontSize: 12.5, marginTop: 6 }}>
-            <span style={{ color: 'var(--text3)' }}>Produzido: <strong style={{ color: 'var(--text)' }}>{fmtNum(previewQty)} un.</strong></span>
-            {previewAprov > 0 && <>
-              <span style={{ color: 'var(--text3)' }}>Aproveitado: <strong style={{ color: 'var(--green)' }}>{fmtNum(previewAprov)} un.</strong></span>
-              <span style={{ color: 'var(--text3)' }}>Perda: <strong style={{ color: 'var(--red)' }}>{fmtNum(previewPerda)} un.</strong></span>
-              <span style={{ color: 'var(--text3)' }}>Taxa: <strong style={{ color: 'var(--amber)' }}>{previewTaxa}%</strong></span>
-            </>}
-            <span style={{ color: 'var(--text3)' }}>Valor: <strong style={{ color: 'var(--green)' }}>{fmtMoeda(previewVal)}</strong></span>
-          </div>
-        )}
+        {previewQty > 0 && (() => {
+          const prevMacos = Math.round(previewQty / 20)
+          const prevDisplays = Math.floor(previewQty / 200)
+          const prevKg = (previewQty / 1000).toFixed(3)
+          return (
+            <div style={{ background: 'var(--bg3)', borderRadius: 'var(--rs)', padding: '10px 14px', fontSize: 12.5, marginTop: 6 }}>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: previewAprov > 0 ? 8 : 0 }}>
+                <span style={{ color: 'var(--text3)' }}>Palheiros: <strong style={{ color: 'var(--text)' }}>{fmtNum(previewQty)}</strong></span>
+                <span style={{ color: 'var(--text3)' }}>Fumo: <strong style={{ color: 'var(--text)' }}>{prevKg} kg</strong></span>
+                <span style={{ color: 'var(--text3)' }}>Mieros palha: <strong style={{ color: 'var(--text)' }}>{prevKg}</strong></span>
+                <span style={{ color: 'var(--text3)' }}>Maços: <strong style={{ color: 'var(--gold-light)' }}>{fmtNum(prevMacos)} maços</strong></span>
+                <span style={{ color: 'var(--text3)' }}>Linguetas: <strong style={{ color: 'var(--gold-light)' }}>{fmtNum(prevMacos)} linguetas</strong></span>
+                <span style={{ color: 'var(--text3)' }}>Displays: <strong style={{ color: 'var(--amber)' }}>{prevDisplays} displays</strong></span>
+                <span style={{ color: 'var(--text3)' }}>Valor: <strong style={{ color: 'var(--green)' }}>{fmtMoeda(previewVal)}</strong></span>
+              </div>
+              {previewAprov > 0 && (
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                  <span style={{ color: 'var(--text3)' }}>Aproveitado: <strong style={{ color: 'var(--green)' }}>{fmtNum(previewAprov)} palheiros</strong></span>
+                  <span style={{ color: 'var(--text3)' }}>Perda: <strong style={{ color: 'var(--red)' }}>{fmtNum(previewPerda)} palheiros</strong></span>
+                  <span style={{ color: 'var(--text3)' }}>Taxa: <strong style={{ color: 'var(--amber)' }}>{previewTaxa}%</strong></span>
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Tabela */}
@@ -117,7 +131,7 @@ export default function Registro() {
             ? <div className="empty-state"><div className="es-icon">📝</div><div className="es-text">Nenhum registro nesta data</div></div>
             : <>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-                {[['Total', fmtNum(total) + ' un.', 'var(--gold-light)'], ['Valor', fmtMoeda(valor), 'var(--green)'], ['Registros', regsData.length, 'var(--text)']].map(([l, v, c]) => (
+                {[['Total', fmtNum(Math.round(total / 20)) + ' maços', 'var(--gold-light)'], ['Valor', fmtMoeda(valor), 'var(--green)'], ['Registros', regsData.length, 'var(--text)']].map(([l, v, c]) => (
                   <div key={l} className="stats-chip"><span style={{ color: 'var(--text3)' }}>{l}: </span><strong style={{ color: c }}>{v}</strong></div>
                 ))}
               </div>
@@ -132,9 +146,9 @@ export default function Registro() {
                         <tr key={r.id}>
                           <td style={{ fontFamily: 'Barlow Condensed,sans-serif', fontSize: 18, fontWeight: 800, color: 'var(--text3)' }}>{MEDALS[i] || i + 1}</td>
                           <td><strong style={{ color: 'var(--text)' }}>{r.funcionarios?.nome}</strong></td>
-                          <td>{fmtNum(r.quantidade)} un.</td>
-                          <td style={{ color: r.aproveitado != null ? 'var(--green)' : 'var(--text3)' }}>{r.aproveitado != null ? fmtNum(r.aproveitado) + ' un.' : '—'}</td>
-                          <td style={{ color: r.perda > 0 ? 'var(--red)' : 'var(--text3)' }}>{r.perda != null ? fmtNum(r.perda) + ' un.' : '—'}</td>
+                          <td>{fmtNum(Math.round(r.quantidade / 20))} maços</td>
+                          <td style={{ color: r.aproveitado != null ? 'var(--green)' : 'var(--text3)' }}>{r.aproveitado != null ? fmtNum(Math.round(r.aproveitado / 20)) + ' maços' : '—'}</td>
+                          <td style={{ color: r.perda > 0 ? 'var(--red)' : 'var(--text3)' }}>{r.perda != null ? fmtNum(Math.round(r.perda / 20)) + ' maços' : '—'}</td>
                           <td><span style={{ fontWeight: 700, color: r.taxa != null ? (r.taxa >= 90 ? 'var(--green)' : r.taxa >= 70 ? 'var(--amber)' : 'var(--red)') : 'var(--text3)' }}>{r.taxa != null ? r.taxa + '%' : '—'}</span></td>
                           <td style={{ color: 'var(--green)' }}>{fmtMoeda(Number(r.valor))}</td>
                           <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
@@ -161,9 +175,9 @@ export default function Registro() {
           <div className="fgrid">
             <div className="fg"><label>Funcionário</label><input value={editando.func_nome || ''} readOnly /></div>
             <div className="fg"><label>Data</label><input type="date" value={editando.data} max={hoje} onChange={e => setEditando(v => ({ ...v, data: e.target.value }))} /></div>
-            <div className="fg"><label>Qtd. Produzida</label><input type="number" min="0" value={editando.quantidade} onChange={e => setEditando(v => ({ ...v, quantidade: e.target.value }))} /></div>
+            <div className="fg"><label>Palheiros Produzidos</label><input type="number" min="0" value={editando.quantidade} onChange={e => setEditando(v => ({ ...v, quantidade: e.target.value }))} /></div>
             <div className="fg"><label>Valor (auto)</label><input value={fmtMoeda(calcValor(parseInt(editando.aproveitado) || parseInt(editando.quantidade) || 0, valorMil))} readOnly /></div>
-            <div className="fg"><label>Qtd. Aproveitada</label><input type="number" min="0" placeholder="Opcional" value={editando.aproveitado || ''} onChange={e => setEditando(v => ({ ...v, aproveitado: e.target.value }))} /></div>
+            <div className="fg"><label>Palheiros Aproveitados</label><input type="number" min="0" placeholder="Opcional" value={editando.aproveitado || ''} onChange={e => setEditando(v => ({ ...v, aproveitado: e.target.value }))} /></div>
             <div className="fg"><label>Taxa</label><input value={editando.aproveitado && editando.quantidade ? Math.round(editando.aproveitado / editando.quantidade * 100) + '%' : '—'} readOnly /></div>
           </div>
           <div className="fg"><label>Observação</label><input value={editando.obs || ''} onChange={e => setEditando(v => ({ ...v, obs: e.target.value }))} /></div>
@@ -183,7 +197,7 @@ export default function Registro() {
           details={[
             ['Funcionário', excluindo.funcionarios?.nome],
             ['Data', fmtData(excluindo.data)],
-            ['Quantidade', fmtNum(excluindo.quantidade) + ' un.'],
+            ['Maços', fmtNum(Math.round(excluindo.quantidade / 20)) + ' maços'],
             ['Valor', fmtMoeda(Number(excluindo.valor))],
           ]}
         />

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { subDays, format } from 'date-fns'
 import { useRegistros, useFuncionarios, useConfig } from '../lib/hooks'
 import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, exportCSV } from '../lib/utils'
+import ConfirmModal from '../components/ConfirmModal'
 
 export default function Historico() {
   const hoje = getHoje()
@@ -9,9 +10,11 @@ export default function Historico() {
   const [filtros, setFiltros] = useState({ funcId: '', dataInicio: ini30, dataFim: hoje })
   const [aplicados, setAplicados] = useState({ ...filtros })
 
+  const [confirmDel, setConfirmDel] = useState(null)
+
   const { funcionarios } = useFuncionarios()
   const { valorMil } = useConfig()
-  const { registros, loading } = useRegistros({ funcId: aplicados.funcId || undefined, dataInicio: aplicados.dataInicio, dataFim: aplicados.dataFim })
+  const { registros, loading, excluir } = useRegistros({ funcId: aplicados.funcId || undefined, dataInicio: aplicados.dataInicio, dataFim: aplicados.dataFim })
 
   const total = registros.reduce((s, r) => s + r.quantidade, 0)
   const valor = registros.reduce((s, r) => s + Number(r.valor || 0), 0)
@@ -48,7 +51,7 @@ export default function Historico() {
       <div className="card">
         <div className="card-title">Histórico de Produção</div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-          {[['Total', fmtNum(total) + ' un.', 'var(--gold-light)'], ['Valor', fmtMoeda(valor), 'var(--green)'], ['Registros', registros.length, 'var(--text)']].map(([l, v, c]) => (
+          {[['Total', fmtNum(Math.round(total / 20)) + ' maços', 'var(--gold-light)'], ['Valor', fmtMoeda(valor), 'var(--green)'], ['Registros', registros.length, 'var(--text)']].map(([l, v, c]) => (
             <div key={l} className="stats-chip"><span style={{ color: 'var(--text3)' }}>{l}: </span><strong style={{ color: c }}>{v}</strong></div>
           ))}
         </div>
@@ -57,7 +60,7 @@ export default function Historico() {
             ? <div className="empty-state"><div className="es-icon">🔍</div><div className="es-text">Nenhum registro no período</div></div>
             : <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Data</th><th>Funcionário</th><th>Produzido</th><th>Aproveitado</th><th>Taxa</th><th>Valor</th><th>% Meta</th><th>Obs.</th></tr></thead>
+                  <thead><tr><th>Data</th><th>Funcionário</th><th>Produzido</th><th>Aproveitado</th><th>Taxa</th><th>Valor</th><th>% Meta</th><th>Obs.</th><th>Ações</th></tr></thead>
                   <tbody>
                     {registros.map(r => {
                       const pct = r.funcionarios?.meta_diaria ? pctMeta(r.quantidade, r.funcionarios.meta_diaria) : 0
@@ -65,12 +68,13 @@ export default function Historico() {
                         <tr key={r.id}>
                           <td>{fmtData(r.data)}</td>
                           <td><strong style={{ color: 'var(--text)' }}>{r.funcionarios?.nome}</strong></td>
-                          <td>{fmtNum(r.quantidade)} un.</td>
-                          <td style={{ color: r.aproveitado != null ? 'var(--green)' : 'var(--text3)' }}>{r.aproveitado != null ? fmtNum(r.aproveitado) + ' un.' : '—'}</td>
+                          <td>{fmtNum(Math.round(r.quantidade / 20))} maços</td>
+                          <td style={{ color: r.aproveitado != null ? 'var(--green)' : 'var(--text3)' }}>{r.aproveitado != null ? fmtNum(Math.round(r.aproveitado / 20)) + ' maços' : '—'}</td>
                           <td><span style={{ fontWeight: 700, color: r.taxa != null ? (r.taxa >= 90 ? 'var(--green)' : r.taxa >= 70 ? 'var(--amber)' : 'var(--red)') : 'var(--text3)' }}>{r.taxa != null ? r.taxa + '%' : '—'}</span></td>
                           <td style={{ color: 'var(--green)' }}>{fmtMoeda(Number(r.valor))}</td>
                           <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
                           <td style={{ color: 'var(--text3)' }}>{r.obs || '—'}</td>
+                          <td><button className="btn btn-danger btn-xs" onClick={() => setConfirmDel(r)}>🗑</button></td>
                         </tr>
                       )
                     })}
@@ -79,6 +83,20 @@ export default function Historico() {
               </div>
         }
       </div>
+
+      {confirmDel && (
+        <ConfirmModal
+          title="Excluir registro?"
+          onConfirm={async () => { await excluir(confirmDel.id); setConfirmDel(null) }}
+          onCancel={() => setConfirmDel(null)}
+          details={[
+            ['Funcionário', confirmDel.funcionarios?.nome],
+            ['Data', fmtData(confirmDel.data)],
+            ['Maços', fmtNum(Math.round(confirmDel.quantidade / 20)) + ' maços'],
+            ['Valor', fmtMoeda(Number(confirmDel.valor))],
+          ]}
+        />
+      )}
     </div>
   )
 }
