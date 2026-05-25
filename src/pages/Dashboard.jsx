@@ -40,10 +40,10 @@ export default function Dashboard() {
     <div>
       <div className="stat-grid">
         {[
-          { cls:'sc-gold',  sv:'sv-gold',  label:'Produção Hoje',   val:fmtNum(Math.round(stats.totalHoje / 20)),      sub:'maços produzidos', small:false },
-          { cls:'sc-green', sv:'sv-green', label:'Valor do Dia',    val:fmtMoeda(stats.valorHoje),    sub:fmtMoeda(valorMil)+' por 1.000 palheiros', small:true },
-          { cls:'sc-blue',  sv:'sv-blue',  label:'Valor Semanal',   val:fmtMoeda(stats.valorSemana),  sub:fmtNum(Math.round(stats.totalSemana / 20))+' maços semana', small:true },
-          { cls:'sc-amber', sv:'sv-amber', label:'Valor Mensal',    val:fmtMoeda(stats.valorMesV),   sub:fmtNum(Math.round(stats.totalMes / 20))+' maços mês', small:true },
+          { cls:'sc-gold',  sv:'sv-gold',  label:'Produção Hoje',   val:fmtNum(stats.totalHoje),      sub:'unidades produzidas', small:false },
+          { cls:'sc-green', sv:'sv-green', label:'Valor do Dia',    val:fmtMoeda(stats.valorHoje),    sub:fmtMoeda(valorMil)+' por 1.000 un.', small:true },
+          { cls:'sc-blue',  sv:'sv-blue',  label:'Valor Semanal',   val:fmtMoeda(stats.valorSemana),  sub:fmtNum(stats.totalSemana)+' un. semana', small:true },
+          { cls:'sc-amber', sv:'sv-amber', label:'Valor Mensal',    val:fmtMoeda(stats.valorMesV),   sub:fmtNum(stats.totalMes)+' un. mês', small:true },
         ].map(x => (
           <div key={x.label} className={`stat-card ${x.cls}`}>
             <div className="stat-label">{x.label}</div>
@@ -94,10 +94,10 @@ export default function Dashboard() {
             <div key={f.id} style={{ marginBottom: 13 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
                 <span style={{ fontSize: 13 }}>{f.nome}</span>
-                <span style={{ fontSize: 12, color: 'var(--text3)' }}>{f.qty ? fmtNum(Math.round(f.qty / 20)) + ' maços' : 'Sem registro'}</span>
+                <span style={{ fontSize: 12, color: 'var(--text3)' }}>{f.qty ? fmtNum(f.qty) + ' un.' : 'Sem registro'}</span>
               </div>
               <div className="pbar"><div className={`pfill ${f.pct >= 100 ? 'pf-green' : f.pct >= 70 ? 'pf-gold' : f.pct > 0 ? 'pf-amber' : ''}`} style={{ width: `${Math.min(100, f.pct)}%` }} /></div>
-              <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{f.pct}% da meta ({fmtNum(Math.round(f.meta_diaria / 20))} maços)</div>
+              <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{f.pct}% da meta ({fmtNum(f.meta_diaria)} un.)</div>
             </div>
           ))}
         </div>

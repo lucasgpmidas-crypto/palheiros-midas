@@ -37,14 +37,14 @@ export default function MinhaProducao() {
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: 'Barlow Condensed,sans-serif', fontSize: 22, fontWeight: 700 }}>Olá, {f?.nome?.split(' ')[0] || 'Funcionário'}! 👋</div>
             <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-              Meta: {fmtNum(Math.round((f?.meta_diaria || 0) / 20))} maços/dia · {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+              Meta: {fmtNum(f?.meta_diaria || 0)} un./dia · {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </div>
           </div>
           {meuHoje
             ? <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 11, color: 'var(--text3)' }}>Produção de hoje</div>
-                <div style={{ fontFamily: 'Barlow Condensed,sans-serif', fontSize: 32, fontWeight: 800, color: corPct(f ? pctMeta(meuHoje.quantidade, f.meta_diaria) : 0) }}>{fmtNum(Math.round(meuHoje.quantidade / 20))}</div>
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>maços · {fmtMoeda(Number(meuHoje.valor))}</div>
+                <div style={{ fontFamily: 'Barlow Condensed,sans-serif', fontSize: 32, fontWeight: 800, color: corPct(f ? pctMeta(meuHoje.quantidade, f.meta_diaria) : 0) }}>{fmtNum(meuHoje.quantidade)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>unidades · {fmtMoeda(Number(meuHoje.valor))}</div>
               </div>
             : <div style={{ fontSize: 13, color: 'var(--amber)' }}>⚠️ Sem registro hoje</div>
           }
@@ -61,12 +61,12 @@ export default function MinhaProducao() {
         <div className="stat-card sc-green">
           <div className="stat-label">Valor 30 Dias</div>
           <div className="stat-value sv-green" style={{ fontSize: 20 }}>{fmtMoeda(valor30)}</div>
-          <div className="stat-sub">{fmtNum(Math.round(total30 / 20))} maços produzidos</div>
+          <div className="stat-sub">{fmtNum(total30)} un. produzidas</div>
         </div>
         <div className="stat-card sc-blue">
           <div className="stat-label">Média Diária</div>
-          <div className="stat-value sv-blue">{fmtNum(Math.round(media30 / 20))}</div>
-          <div className="stat-sub">maços/dia</div>
+          <div className="stat-value sv-blue">{fmtNum(media30)}</div>
+          <div className="stat-sub">un. por dia</div>
         </div>
         <div className="stat-card sc-amber">
           <div className="stat-label">Dias na Meta</div>
@@ -116,7 +116,7 @@ export default function MinhaProducao() {
                     <tr key={r.id}>
                       <td>{new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</td>
                       <td style={{ color: 'var(--text3)' }}>{new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short' })}</td>
-                      <td><strong style={{ color: 'var(--text)' }}>{fmtNum(Math.round(r.quantidade / 20))} maços</strong></td>
+                      <td><strong style={{ color: 'var(--text)' }}>{fmtNum(r.quantidade)} un.</strong></td>
                       <td style={{ color: 'var(--green)' }}>{fmtMoeda(Number(r.valor))}</td>
                       <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
                     </tr>

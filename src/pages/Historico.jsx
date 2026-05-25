@@ -51,7 +51,7 @@ export default function Historico() {
       <div className="card">
         <div className="card-title">Histórico de Produção</div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-          {[['Total', fmtNum(Math.round(total / 20)) + ' maços', 'var(--gold-light)'], ['Valor', fmtMoeda(valor), 'var(--green)'], ['Registros', registros.length, 'var(--text)']].map(([l, v, c]) => (
+          {[['Total', fmtNum(total) + ' un.', 'var(--gold-light)'], ['Valor', fmtMoeda(valor), 'var(--green)'], ['Registros', registros.length, 'var(--text)']].map(([l, v, c]) => (
             <div key={l} className="stats-chip"><span style={{ color: 'var(--text3)' }}>{l}: </span><strong style={{ color: c }}>{v}</strong></div>
           ))}
         </div>
@@ -68,8 +68,8 @@ export default function Historico() {
                         <tr key={r.id}>
                           <td>{fmtData(r.data)}</td>
                           <td><strong style={{ color: 'var(--text)' }}>{r.funcionarios?.nome}</strong></td>
-                          <td>{fmtNum(Math.round(r.quantidade / 20))} maços</td>
-                          <td style={{ color: r.aproveitado != null ? 'var(--green)' : 'var(--text3)' }}>{r.aproveitado != null ? fmtNum(Math.round(r.aproveitado / 20)) + ' maços' : '—'}</td>
+                          <td>{fmtNum(r.quantidade)} un.</td>
+                          <td style={{ color: r.aproveitado != null ? 'var(--green)' : 'var(--text3)' }}>{r.aproveitado != null ? fmtNum(r.aproveitado) + ' un.' : '—'}</td>
                           <td><span style={{ fontWeight: 700, color: r.taxa != null ? (r.taxa >= 90 ? 'var(--green)' : r.taxa >= 70 ? 'var(--amber)' : 'var(--red)') : 'var(--text3)' }}>{r.taxa != null ? r.taxa + '%' : '—'}</span></td>
                           <td style={{ color: 'var(--green)' }}>{fmtMoeda(Number(r.valor))}</td>
                           <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
@@ -92,7 +92,7 @@ export default function Historico() {
           details={[
             ['Funcionário', confirmDel.funcionarios?.nome],
             ['Data', fmtData(confirmDel.data)],
-            ['Maços', fmtNum(Math.round(confirmDel.quantidade / 20)) + ' maços'],
+            ['Quantidade', fmtNum(confirmDel.quantidade) + ' un.'],
             ['Valor', fmtMoeda(Number(confirmDel.valor))],
           ]}
         />

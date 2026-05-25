@@ -77,9 +77,9 @@ export default function HistEquipe() {
 
       <div className="stat-grid mb16">
         {[
-          { cls:'sc-gold',  sv:'sv-gold',  label:'Total Equipe',       val:fmtNum(Math.round(stats.totalQty / 20))+' maços' },
+          { cls:'sc-gold',  sv:'sv-gold',  label:'Total Equipe',       val:fmtNum(stats.totalQty)+' un.' },
           { cls:'sc-green', sv:'sv-green', label:'Valor Total',         val:fmtMoeda(stats.totalVal), small:true },
-          { cls:'sc-blue',  sv:'sv-blue',  label:'Média/Dia/Operador',  val:fmtNum(Math.round(stats.mediaEquipe / 20))+' maços' },
+          { cls:'sc-blue',  sv:'sv-blue',  label:'Média/Dia/Operador',  val:fmtNum(stats.mediaEquipe)+' un.' },
           { cls:'sc-amber', sv:'sv-amber', label:'Dias Registrados',    val:stats.diasUnicos+' de '+periodo },
         ].map(x => (
           <div key={x.label} className={`stat-card ${x.cls}`}>
@@ -96,7 +96,7 @@ export default function HistEquipe() {
             {loading ? <div className="loading"><div className="spin" /></div>
               : <Line
                   data={{ labels: stats.chartLabels, datasets: stats.datasets }}
-                  options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#9CA5C2', font: { size: 11 }, boxWidth: 12 } }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmtNum(Math.round(c.raw / 20)) + ' maços' } } }, scales: { x: { ticks: { color: '#5E6A8A', font: { size: 10 }, maxTicksLimit: 10 }, grid: { color: 'rgba(255,255,255,.04)' } }, y: { ticks: { color: '#5E6A8A', font: { size: 11 }, callback: v => fmtNum(v) }, grid: { color: 'rgba(255,255,255,.04)' } } } }}
+                  options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#9CA5C2', font: { size: 11 }, boxWidth: 12 } }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmtNum(c.raw) + ' un.' } } }, scales: { x: { ticks: { color: '#5E6A8A', font: { size: 10 }, maxTicksLimit: 10 }, grid: { color: 'rgba(255,255,255,.04)' } }, y: { ticks: { color: '#5E6A8A', font: { size: 11 }, callback: v => fmtNum(v) }, grid: { color: 'rgba(255,255,255,.04)' } } } }}
                 />
             }
           </div>
@@ -113,7 +113,7 @@ export default function HistEquipe() {
                 <div className="rank-info">
                   <div className="rank-name">{x.f.nome}</div>
                   <div className="pbar"><div className={`pfill ${x.pct >= 100 ? 'pf-green' : x.pct >= 70 ? 'pf-gold' : 'pf-amber'}`} style={{ width: `${Math.min(100, x.pct)}%` }} /></div>
-                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{x.dias} dias · Média {fmtNum(Math.round(x.media / 20))} maços/dia</div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{x.dias} dias · Média {fmtNum(x.media)} un./dia</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontFamily: 'Barlow Condensed,sans-serif', fontSize: 18, fontWeight: 800, color: 'var(--gold-light)' }}>{fmtNum(x.tot)}</div>
@@ -141,10 +141,10 @@ export default function HistEquipe() {
                         <strong style={{ color: 'var(--text)' }}>{x.f.nome}</strong>
                       </div>
                     </td>
-                    <td><strong style={{ color: 'var(--gold-light)' }}>{fmtNum(Math.round(x.tot / 20))} maços</strong></td>
+                    <td><strong style={{ color: 'var(--gold-light)' }}>{fmtNum(x.tot)} un.</strong></td>
                     <td style={{ color: 'var(--green)' }}>{fmtMoeda(x.val)}</td>
                     <td>{x.dias}</td>
-                    <td>{fmtNum(Math.round(x.media / 20))} maços</td>
+                    <td>{fmtNum(x.media)} un.</td>
                     <td>{x.diasMeta}/{x.dias}</td>
                     <td><span style={{ color: taxaCor(x.pct), fontWeight: 700 }}>{x.pct}%</span></td>
                   </tr>
