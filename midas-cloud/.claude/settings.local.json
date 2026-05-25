@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Cliente\\\\Desktop\\\\midas-cloud\" -Recurse -Depth 3)",
+      "Bash(Select-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Cliente\\\\Desktop\\\\midas-cloud\" -Force | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Cliente\\\\Desktop\\\\midas-cloud\\\\midas-cloud\" -Force | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Cliente\\\\Desktop\\\\midas-cloud\\\\midas-cloud\\\\midas-cloud\" -Force | ForEach-Object { $_.FullName })",
+      "Bash(npm install *)",
+      "PowerShell(gh *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Cliente\\\\Desktop\\\\midas-cloud\\\\midas-cloud\\\\midas-cloud\" -Force | ForEach-Object { $_.Name })"
+    ]
+  }
+}
