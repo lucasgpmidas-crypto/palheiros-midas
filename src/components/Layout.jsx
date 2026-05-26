@@ -19,6 +19,8 @@ const ADMIN_NAV = [
   { to: '/hist-equipe',     icon: '👥', label: 'Equipe' },
   { section: 'Relatórios' },
   { to: '/relatorios',    icon: '📄', label: 'Relatórios' },
+  { section: 'Presídio' },
+  { to: '/presidio',      icon: '⛓', label: 'Créditos MIDAS' },
 ]
 
 const FUNC_NAV = [
@@ -41,6 +43,7 @@ const PAGE_TITLES = {
   '/relatorios':      'Relatórios',
   '/minha-producao':  'Minha Produção',
   '/configuracoes':   'Configurações',
+  '/presidio':        'Presídio / Créditos MIDAS',
 }
 
 export default function Layout() {

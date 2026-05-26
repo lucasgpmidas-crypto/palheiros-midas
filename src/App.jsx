@@ -14,6 +14,7 @@ import HistIndividual from './pages/HistIndividual'
 import HistEquipe from './pages/HistEquipe'
 import MinhaProducao from './pages/MinhaProducao'
 import Configuracoes from './pages/Configuracoes'
+import Presidio from './pages/Presidio'
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { isLogado, isAdmin, loading } = useAuth()
@@ -41,6 +42,7 @@ function AppRoutes() {
         <Route path="alertas"       element={<ProtectedRoute adminOnly><Alertas /></ProtectedRoute>} />
         <Route path="relatorios"    element={<ProtectedRoute adminOnly><Relatorios /></ProtectedRoute>} />
         <Route path="configuracoes" element={<ProtectedRoute adminOnly><Configuracoes /></ProtectedRoute>} />
+        <Route path="presidio"      element={<ProtectedRoute adminOnly><Presidio /></ProtectedRoute>} />
 
         {/* Shared routes (admin + funcionario) */}
         <Route path="hist-individual" element={<ProtectedRoute><HistIndividual /></ProtectedRoute>} />
