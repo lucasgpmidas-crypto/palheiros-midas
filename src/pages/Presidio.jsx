@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
-import { getHoje, fmtData } from '../lib/utils'
+import { getHoje, fmtData, exportCSV } from '../lib/utils'
 import {
   startOfWeek, endOfWeek, startOfMonth, endOfMonth,
   format, addWeeks, subWeeks, addMonths, subMonths,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Modal from '../components/Modal'
+import ConfirmModal from '../components/ConfirmModal'
 import toast from 'react-hot-toast'
 
 const CHAVE = 'presidio_data'
@@ -50,15 +51,21 @@ function calcBonusSemanal(totalMil) {
   return tier ? tier.pts : 0
 }
 
+// Filtra registros por mês (yyyy-MM) ou retorna todos
+function filtrarPorMes(registros, mesKey) {
+  if (!mesKey) return registros
+  const d = parseDate(mesKey + '-15')
+  const ms = format(startOfMonth(d), 'yyyy-MM-dd')
+  const me = format(endOfMonth(d), 'yyyy-MM-dd')
+  return registros.filter(r => r.data >= ms && r.data <= me)
+}
+
 function computeCredits(registros, enroladores) {
   const ids = enroladores.map(e => e.id)
   const baseMap = Object.fromEntries(ids.map(id => [id, 0]))
   const semanalMap = Object.fromEntries(ids.map(id => [id, 0]))
   const rankingMap = Object.fromEntries(ids.map(id => [id, 0]))
-
-  // weekly groups: key=enroladorId__weekStart → { eid, totalMil }
   const weekMap = {}
-  // monthly approved milheiros: key=eid__monthKey → totalMil
   const monthMilMap = {}
 
   registros.forEach(r => {
@@ -79,13 +86,11 @@ function computeCredits(registros, enroladores) {
     monthMilMap[mkey] = (monthMilMap[mkey] || 0) + r.milheiros
   })
 
-  // weekly bonuses
   Object.values(weekMap).forEach(({ eid, totalMil }) => {
     const b = calcBonusSemanal(totalMil)
     semanalMap[eid] = (semanalMap[eid] || 0) + b
   })
 
-  // monthly ranking bonuses
   const allMonths = [...new Set(Object.values(weekMap).map(v => v.monthKey))]
   allMonths.forEach(monthKey => {
     const scores = ids
@@ -108,20 +113,42 @@ function computeCredits(registros, enroladores) {
   return result
 }
 
-// ─── Tab Registrar ─────────────────────────────────────────────────────────────
+// ─── Tab Registrar ──────────────────────────────────────────────────────────────
 
 function TabRegistrar({ dados, setDados }) {
   const [form, setForm] = useState({ enroladorId: '', data: getHoje(), milheiros: '', aproveitamento: '' })
   const [saving, setSaving] = useState(false)
+  const [confirmId, setConfirmId] = useState(null) // id do registro a excluir
 
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const enroladoresAtivos = dados.enroladores.filter(e => e.ativo)
 
+  // Resumo da semana atual
+  const weekStats = useMemo(() => {
+    const d = parseDate(getHoje())
+    const ws = format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    const we = format(endOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    const wLabel = `${format(parseDate(ws), 'dd/MM', { locale: ptBR })} – ${format(parseDate(we), 'dd/MM', { locale: ptBR })}`
+
+    const milPorEnrolador = {}
+    dados.registros.forEach(r => {
+      if (r.aproveitamento < 96 || r.data < ws || r.data > we) return
+      milPorEnrolador[r.enroladorId] = (milPorEnrolador[r.enroladorId] || 0) + r.milheiros
+    })
+
+    const totalMil = Object.values(milPorEnrolador).reduce((s, v) => s + v, 0)
+    const totalPts = totalMil
+    let totalBonus = 0
+    Object.values(milPorEnrolador).forEach(mil => { totalBonus += calcBonusSemanal(mil) })
+
+    return { wLabel, totalMil, totalPts, totalBonus, milPorEnrolador }
+  }, [dados.registros])
+
   const handleSalvar = async () => {
     if (!form.enroladorId) { toast.error('Selecione o enrolador'); return }
-    const mil = Number(form.milheiros)
+    const mil = Math.round(Number(form.milheiros) * 10) / 10
     const apr = Number(form.aproveitamento)
-    if (!mil || mil <= 0) { toast.error('Informe os milheiros'); return }
+    if (!form.milheiros || mil < 0.5) { toast.error('Mínimo de 0,5 milheiros'); return }
     if (form.aproveitamento === '' || apr < 0 || apr > 100) { toast.error('Aproveitamento inválido (0–100)'); return }
 
     setSaving(true)
@@ -143,22 +170,66 @@ function TabRegistrar({ dados, setDados }) {
     setSaving(false)
   }
 
-  const handleExcluir = async (id) => {
-    const atualizado = { ...dados, registros: dados.registros.filter(r => r.id !== id) }
+  const handleExcluir = async () => {
+    const atualizado = { ...dados, registros: dados.registros.filter(r => r.id !== confirmId) }
     try {
       await saveData(atualizado)
       setDados(atualizado)
+      setConfirmId(null)
       toast.success('Registro removido')
     } catch { toast.error('Erro ao remover') }
   }
 
   const nomeEnrolador = (eid) => dados.enroladores.find(e => e.id === eid)?.nome || '—'
-  const recentes = [...dados.registros].sort((a, b) => b.data.localeCompare(a.data) || b.criadoEm?.localeCompare(a.criadoEm || '') || 0).slice(0, 60)
+  const recentes = [...dados.registros]
+    .sort((a, b) => b.data.localeCompare(a.data) || (b.criadoEm || '').localeCompare(a.criadoEm || ''))
+    .slice(0, 60)
+
   const aprPrev = Number(form.aproveitamento)
-  const milPrev = Number(form.milheiros)
+  const milPrev = Math.round(Number(form.milheiros) * 10) / 10
+
+  const registroConfirm = dados.registros.find(r => r.id === confirmId)
 
   return (
     <div>
+      {/* Resumo semana atual */}
+      <div className="card mb16" style={{ background: 'rgba(201,162,39,.06)', border: '1px solid rgba(201,162,39,.18)' }}>
+        <div style={{ fontSize: 11, color: 'var(--gold-light)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+          Semana Atual — {weekStats.wLabel}
+        </div>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--gold-light)' }}>{weekStats.totalMil}</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)' }}>mil aprovados</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--green)' }}>{weekStats.totalPts}</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)' }}>pontos base</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: weekStats.totalBonus > 0 ? 'var(--green)' : 'var(--text3)' }}>
+              {weekStats.totalBonus > 0 ? `+${weekStats.totalBonus}` : '—'}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text3)' }}>bônus semanal</div>
+          </div>
+          {Object.keys(weekStats.milPorEnrolador).length > 0 && (
+            <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              {Object.entries(weekStats.milPorEnrolador).map(([eid, mil]) => {
+                const bonus = calcBonusSemanal(mil)
+                const nome = nomeEnrolador(eid)
+                return (
+                  <div key={eid} style={{ fontSize: 12 }}>
+                    <span style={{ color: 'var(--text2)' }}>{nome.split(' ')[0]}: </span>
+                    <span style={{ color: 'var(--gold-light)', fontWeight: 700 }}>{mil} mil</span>
+                    {bonus > 0 && <span style={{ color: 'var(--green)' }}> +{bonus}pts</span>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="card mb16">
         <div className="card-title">✏️ Registrar Produção</div>
         <div className="fgrid">
@@ -174,8 +245,8 @@ function TabRegistrar({ dados, setDados }) {
             <input type="date" value={form.data} onChange={e => setF('data', e.target.value)} />
           </div>
           <div className="fg">
-            <label>Milheiros Produzidos *</label>
-            <input type="number" min="0" step="0.1" value={form.milheiros}
+            <label>Milheiros Produzidos * <span style={{ color: 'var(--text3)', fontWeight: 400 }}>(mín. 0,5)</span></label>
+            <input type="number" min="0.5" step="0.5" value={form.milheiros}
               onChange={e => setF('milheiros', e.target.value)} placeholder="Ex: 5" />
           </div>
           <div className="fg">
@@ -195,9 +266,9 @@ function TabRegistrar({ dados, setDados }) {
             </span>
             {aprPrev >= 96 && milPrev >= 5 && (
               <span>
-                <span style={{ color: 'var(--text3)' }}>Bônus semanal possível: </span>
+                <span style={{ color: 'var(--text3)' }}>Bônus semanal se atingir: </span>
                 <strong style={{ color: 'var(--gold-light)' }}>
-                  {milPrev >= 9 ? '+10 pts' : milPrev >= 7 ? '+5 pts' : '+2 pts'} (acumulado na semana)
+                  {milPrev >= 9 ? '+10 pts (≥9mil)' : milPrev >= 7 ? '+5 pts (≥7mil)' : '+2 pts (≥5mil)'}
                 </strong>
               </span>
             )}
@@ -229,7 +300,8 @@ function TabRegistrar({ dados, setDados }) {
                         <td><span className={`badge ${ok ? 'b-green' : 'b-red'}`}>{r.aproveitamento}%</span></td>
                         <td><strong style={{ color: ok ? 'var(--green)' : 'var(--text3)' }}>{ok ? `+${r.milheiros}` : '0'}</strong></td>
                         <td>
-                          <button className="btn btn-secondary btn-sm" onClick={() => handleExcluir(r.id)} style={{ color: 'var(--red)' }} title="Excluir">🗑</button>
+                          <button className="btn btn-secondary btn-sm" onClick={() => setConfirmId(r.id)}
+                            style={{ color: 'var(--red)' }} title="Excluir">🗑</button>
                         </td>
                       </tr>
                     )
@@ -239,6 +311,22 @@ function TabRegistrar({ dados, setDados }) {
             </div>
         }
       </div>
+
+      {confirmId && registroConfirm && (
+        <ConfirmModal
+          title="Excluir Registro?"
+          message="Este registro será removido permanentemente."
+          details={[
+            ['Enrolador', nomeEnrolador(registroConfirm.enroladorId)],
+            ['Data', fmtData(registroConfirm.data)],
+            ['Milheiros', `${registroConfirm.milheiros} mil`],
+            ['Aproveitamento', `${registroConfirm.aproveitamento}%`],
+          ]}
+          confirmLabel="Sim, excluir"
+          onConfirm={handleExcluir}
+          onCancel={() => setConfirmId(null)}
+        />
+      )}
     </div>
   )
 }
@@ -250,11 +338,18 @@ function TabEnroladores({ dados, setDados }) {
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState({ nome: '', ativo: true, obs: '' })
   const [saving, setSaving] = useState(false)
+  const [confirmExcluirId, setConfirmExcluirId] = useState(null)
 
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const abrirNovo = () => { setEditId(null); setForm({ nome: '', ativo: true, obs: '' }); setModal(true) }
   const abrirEditar = (e) => { setEditId(e.id); setForm({ nome: e.nome, ativo: e.ativo, obs: e.obs || '' }); setModal(true) }
+
+  const registrosPorEnrolador = useMemo(() => {
+    const map = {}
+    dados.registros.forEach(r => { map[r.enroladorId] = (map[r.enroladorId] || 0) + 1 })
+    return map
+  }, [dados.registros])
 
   const handleSalvar = async () => {
     if (!form.nome.trim()) { toast.error('Informe o nome'); return }
@@ -279,7 +374,20 @@ function TabEnroladores({ dados, setDados }) {
     setSaving(false)
   }
 
+  const handleExcluir = async () => {
+    const enroladores = dados.enroladores.filter(e => e.id !== confirmExcluirId)
+    const registros = dados.registros.filter(r => r.enroladorId !== confirmExcluirId)
+    const atualizado = { ...dados, enroladores, registros }
+    try {
+      await saveData(atualizado)
+      setDados(atualizado)
+      setConfirmExcluirId(null)
+      toast.success('Enrolador excluído')
+    } catch { toast.error('Erro ao excluir') }
+  }
+
   const ativos = dados.enroladores.filter(e => e.ativo).length
+  const enroladorConfirm = dados.enroladores.find(e => e.id === confirmExcluirId)
 
   return (
     <div>
@@ -297,15 +405,22 @@ function TabEnroladores({ dados, setDados }) {
           ? <div className="empty-state"><div className="es-icon">⛓</div><div className="es-text">Nenhum enrolador cadastrado</div></div>
           : <div className="table-wrap">
               <table>
-                <thead><tr><th>#</th><th>Nome</th><th>Situação</th><th>Observações</th><th>Ações</th></tr></thead>
+                <thead>
+                  <tr><th>#</th><th>Nome</th><th>Situação</th><th>Registros</th><th>Observações</th><th>Ações</th></tr>
+                </thead>
                 <tbody>
                   {dados.enroladores.map((e, i) => (
                     <tr key={e.id}>
                       <td style={{ color: 'var(--text3)', width: 36 }}>{i + 1}</td>
                       <td><strong>{e.nome}</strong></td>
                       <td><span className={`badge ${e.ativo ? 'b-green' : 'b-red'}`}>{e.ativo ? 'Ativo' : 'Inativo'}</span></td>
+                      <td style={{ color: 'var(--text3)' }}>{registrosPorEnrolador[e.id] || 0} reg.</td>
                       <td style={{ color: 'var(--text3)' }}>{e.obs || '—'}</td>
-                      <td><button className="btn btn-secondary btn-sm" onClick={() => abrirEditar(e)}>✏️ Editar</button></td>
+                      <td style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => abrirEditar(e)}>✏️ Editar</button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setConfirmExcluirId(e.id)}
+                          style={{ color: 'var(--red)' }} title="Excluir">🗑</button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -336,6 +451,20 @@ function TabEnroladores({ dados, setDados }) {
             <button className="btn btn-secondary" onClick={() => setModal(false)}>Cancelar</button>
           </div>
         </Modal>
+      )}
+
+      {confirmExcluirId && enroladorConfirm && (
+        <ConfirmModal
+          title="Excluir Enrolador?"
+          message="O enrolador e todos os seus registros serão removidos permanentemente."
+          details={[
+            ['Nome', enroladorConfirm.nome],
+            ['Registros', `${registrosPorEnrolador[confirmExcluirId] || 0} registros`],
+          ]}
+          confirmLabel="Sim, excluir tudo"
+          onConfirm={handleExcluir}
+          onCancel={() => setConfirmExcluirId(null)}
+        />
       )}
     </div>
   )
@@ -375,7 +504,11 @@ function TabRanking({ dados }) {
       milMap[r.enroladorId] = (milMap[r.enroladorId] || 0) + r.milheiros
     })
     return dados.enroladores
-      .map(e => ({ ...e, mil: milMap[e.id] || 0, bonus: calcBonusSemanal(milMap[e.id] || 0) }))
+      .map(e => {
+        const mil = milMap[e.id] || 0
+        const bonus = calcBonusSemanal(mil)
+        return { ...e, mil, bonus, total: mil + bonus }
+      })
       .filter(e => e.mil > 0)
       .sort((a, b) => b.mil - a.mil)
   }, [dados, refDate])
@@ -395,6 +528,21 @@ function TabRanking({ dados }) {
       .sort((a, b) => b.mil - a.mil)
       .map((e, idx) => ({ ...e, bonusRanking: idx < BONUS_RANKING.length ? BONUS_RANKING[idx] : 0 }))
   }, [dados, refDate])
+
+  // Períodos com dados (para dica visual)
+  const mesesComDados = useMemo(() => new Set(dados.registros.map(r => r.data.slice(0, 7))), [dados.registros])
+  const semanasComDados = useMemo(() => {
+    const s = new Set()
+    dados.registros.forEach(r => {
+      const ws = format(startOfWeek(parseDate(r.data), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+      s.add(ws)
+    })
+    return s
+  }, [dados.registros])
+
+  const semanaAtualKey = format(startOfWeek(parseDate(refDate), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const mesAtualKey = refDate.slice(0, 7)
+  const periodoTemDados = modo === 'semana' ? semanasComDados.has(semanaAtualKey) : mesesComDados.has(mesAtualKey)
 
   return (
     <div>
@@ -416,6 +564,9 @@ function TabRanking({ dados }) {
             </span>
             <button className="btn btn-secondary btn-sm" onClick={navNext}>›</button>
           </div>
+          {!periodoTemDados && (
+            <span style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>Sem registros neste período</span>
+          )}
         </div>
       </div>
 
@@ -429,17 +580,23 @@ function TabRanking({ dados }) {
             ? <div className="empty-state"><div className="es-icon">🏆</div><div className="es-text">Sem registros nesta semana</div></div>
             : <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Pos</th><th>Enrolador</th><th>Milheiros Aprov.</th><th>Bônus Semanal</th></tr></thead>
+                  <thead>
+                    <tr><th>Pos</th><th>Enrolador</th><th>Milheiros Aprov.</th><th>Pontos Base</th><th>Bônus Semanal</th><th>Total Semana</th></tr>
+                  </thead>
                   <tbody>
                     {weekRanking.map((e, idx) => (
                       <tr key={e.id}>
                         <td style={{ fontWeight: 800, fontSize: 16, width: 48 }}>{MEDALHAS[idx] ?? `${idx + 1}º`}</td>
                         <td><strong>{e.nome}</strong></td>
                         <td><span style={{ color: 'var(--gold-light)', fontWeight: 700 }}>{e.mil} mil</span></td>
+                        <td style={{ color: 'var(--text2)' }}>{e.mil} pts</td>
                         <td>
                           {e.bonus > 0
                             ? <span className="badge b-green">+{e.bonus} pts</span>
                             : <span style={{ color: 'var(--text3)' }}>—</span>}
+                        </td>
+                        <td>
+                          <strong style={{ color: 'var(--gold-light)' }}>{e.total} pts</strong>
                         </td>
                       </tr>
                     ))}
@@ -483,7 +640,15 @@ function TabRanking({ dados }) {
 // ─── Tab Créditos ───────────────────────────────────────────────────────────────
 
 function TabCreditos({ dados }) {
-  const credits = useMemo(() => computeCredits(dados.registros, dados.enroladores), [dados])
+  const [mesFiltro, setMesFiltro] = useState('')
+
+  const mesesDisponiveis = useMemo(() => {
+    const s = new Set(dados.registros.map(r => r.data.slice(0, 7)))
+    return [...s].sort().reverse()
+  }, [dados.registros])
+
+  const registrosFiltrados = useMemo(() => filtrarPorMes(dados.registros, mesFiltro), [dados.registros, mesFiltro])
+  const credits = useMemo(() => computeCredits(registrosFiltrados, dados.enroladores), [registrosFiltrados, dados.enroladores])
 
   const lista = dados.enroladores
     .map(e => ({ ...e, ...(credits[e.id] || { base: 0, semanal: 0, ranking: 0, total: 0 }) }))
@@ -491,21 +656,61 @@ function TabCreditos({ dados }) {
 
   const totalGeral = lista.reduce((s, e) => s + e.total, 0)
 
+  const handleExportCSV = () => {
+    const periodo = mesFiltro
+      ? format(parseDate(mesFiltro + '-15'), 'MMMM-yyyy', { locale: ptBR })
+      : 'total'
+    const rows = [
+      ['Pos', 'Enrolador', 'Situação', 'Base (pts)', 'Bônus Semanal (pts)', 'Bônus Ranking (pts)', 'Total (pts)'],
+      ...lista.map((e, idx) => [
+        `${idx + 1}º`, e.nome, e.ativo ? 'Ativo' : 'Inativo',
+        e.base, e.semanal, e.ranking, e.total,
+      ]),
+    ]
+    exportCSV(rows, `creditos-midas-${periodo}.csv`)
+    toast.success('CSV exportado!')
+  }
+
   return (
     <div>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div className="stats-chip">
-          <span style={{ color: 'var(--text3)' }}>Total pontos: </span>
-          <strong style={{ color: 'var(--gold-light)' }}>{totalGeral} pts</strong>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="stats-chip">
+            <span style={{ color: 'var(--text3)' }}>Total pontos: </span>
+            <strong style={{ color: 'var(--gold-light)' }}>{totalGeral} pts</strong>
+          </div>
+          <div className="stats-chip">
+            <span style={{ color: 'var(--text3)' }}>Enroladores: </span>
+            <strong>{lista.filter(e => e.ativo).length} ativos</strong>
+          </div>
         </div>
-        <div className="stats-chip">
-          <span style={{ color: 'var(--text3)' }}>Enroladores: </span>
-          <strong>{lista.filter(e => e.ativo).length} ativos</strong>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div className="fg" style={{ margin: 0 }}>
+            <select value={mesFiltro} onChange={e => setMesFiltro(e.target.value)}
+              style={{ fontSize: 13, padding: '6px 10px' }}>
+              <option value="">Todos os tempos</option>
+              {mesesDisponiveis.map(m => (
+                <option key={m} value={m}>
+                  {format(parseDate(m + '-15'), 'MMMM yyyy', { locale: ptBR })}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button className="btn btn-secondary" onClick={handleExportCSV} title="Exportar CSV">
+            📥 Exportar CSV
+          </button>
         </div>
       </div>
 
       <div className="card mb16">
-        <div className="card-title">💎 Saldo de Créditos MIDAS</div>
+        <div className="card-title">
+          💎 Saldo de Créditos MIDAS
+          {mesFiltro && (
+            <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--gold-light)', marginLeft: 8 }}>
+              — {format(parseDate(mesFiltro + '-15'), 'MMMM yyyy', { locale: ptBR })}
+            </span>
+          )}
+        </div>
         {lista.length === 0
           ? <div className="empty-state"><div className="es-icon">💎</div><div className="es-text">Nenhum enrolador cadastrado</div></div>
           : <div className="table-wrap">
