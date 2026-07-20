@@ -56,12 +56,13 @@ export function AuthProvider({ children }) {
   const isAdmin = !!session
   const isFuncionario = !session && !!funcSession
   const isFunc = isFuncionario
+  const isFinalizacao = isFuncionario && funcSession?.setor === 'finalizacao'
   const isLogado = isAdmin || isFuncionario
 
   return (
     <AuthCtx.Provider value={{
       session, funcSession, loading,
-      isAdmin, isFuncionario, isFunc, isLogado,
+      isAdmin, isFuncionario, isFunc, isFinalizacao, isLogado,
       entrarAdmin, entrarFuncionario, sair,
     }}>
       {children}

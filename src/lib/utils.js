@@ -28,6 +28,18 @@ export const avatarCor = (id) => CORES[(id || 0) % CORES.length]
 
 export const pctMeta = (qty, meta) => (meta > 0 ? Math.round((qty / meta) * 100) : 0)
 
+// Funcionário do setor de produção (enrolador) — registros antigos sem setor contam como produção
+export const isProducao = (f) => (f?.setor || 'producao') === 'producao'
+
+// Sugere empacotamento: quantas displays/maços cabem e o que sobra avulso
+export const sugerirEmpacote = (qtd, uniDisplay, uniMaco) => {
+  const displays = Math.floor((qtd || 0) / uniDisplay)
+  const resto = (qtd || 0) % uniDisplay
+  const macos = Math.floor(resto / uniMaco)
+  const avulso = resto % uniMaco
+  return { displays, macos, avulso }
+}
+
 export const corPct = (p) => {
   if (p >= 100) return 'var(--green)'
   if (p >= 70) return 'var(--gold-light)'
@@ -51,6 +63,31 @@ export const getMes = (mesStr) => {
   }
 }
 
+// Retorna o período da quinzena (1ª: 9-24 do mês atual; 2ª: 25 ao 10 do próximo)
+// A 2ª quinzena detecta automaticamente: se hoje >= 25, pega a corrente; senão, a anterior
+export const getQuinzena = (num) => {
+  const hoje = new Date()
+  const dia = hoje.getDate()
+  const ano = hoje.getFullYear()
+  const mes = hoje.getMonth()
+  if (num === 1) {
+    return {
+      inicio: format(new Date(ano, mes, 9), 'yyyy-MM-dd'),
+      fim: format(new Date(ano, mes, 24), 'yyyy-MM-dd'),
+    }
+  }
+  if (dia >= 25) {
+    return {
+      inicio: format(new Date(ano, mes, 25), 'yyyy-MM-dd'),
+      fim: format(new Date(ano, mes + 1, 10), 'yyyy-MM-dd'),
+    }
+  }
+  return {
+    inicio: format(new Date(ano, mes - 1, 25), 'yyyy-MM-dd'),
+    fim: format(new Date(ano, mes, 10), 'yyyy-MM-dd'),
+  }
+}
+
 export const ultimosDias = (n) =>
   Array.from({ length: n }, (_, i) =>
     format(subDays(new Date(), n - 1 - i), 'yyyy-MM-dd')
@@ -65,4 +102,15 @@ export const exportCSV = (rows, filename) => {
   a.download = filename
   a.click()
   URL.revokeObjectURL(url)
+}
+
+export const exportXLSX = (sheets, filename) => {
+  import('xlsx').then((XLSX) => {
+    const wb = XLSX.utils.book_new()
+    sheets.forEach(({ name, rows }) => {
+      const ws = XLSX.utils.aoa_to_sheet(rows)
+      XLSX.utils.book_append_sheet(wb, ws, name)
+    })
+    XLSX.writeFile(wb, filename)
+  })
 }

@@ -4,9 +4,11 @@ import { fmtMoeda, fmtNum } from '../lib/utils'
 import toast from 'react-hot-toast'
 
 export default function Configuracoes() {
-  const { valorMil, salvarValorMil } = useConfig()
+  const { valorMil, uniDisplay, uniMaco, tolerancia, salvarValorMil, salvarConfig } = useConfig()
   const [novoValor, setNovoValor] = useState('')
   const [saving, setSaving] = useState(false)
+  const [emb, setEmb] = useState({ display: '', maco: '', tol: '' })
+  const [savingEmb, setSavingEmb] = useState(false)
 
   const handleSalvar = async () => {
     const v = parseFloat(novoValor)
@@ -15,6 +17,20 @@ export default function Configuracoes() {
     await salvarValorMil(v)
     setNovoValor('')
     setSaving(false)
+  }
+
+  const handleSalvarEmb = async () => {
+    const itens = [
+      ['uni_display', parseInt(emb.display)],
+      ['uni_maco', parseInt(emb.maco)],
+      ['tolerancia_conf', parseFloat(emb.tol)],
+    ].filter(([, v]) => v > 0)
+    if (!itens.length) { toast.error('Preencha ao menos um campo com valor válido'); return }
+    setSavingEmb(true)
+    for (const [chave, v] of itens) await salvarConfig(chave, v)
+    setEmb({ display: '', maco: '', tol: '' })
+    setSavingEmb(false)
+    toast.success('Configurações da conferência salvas!')
   }
 
   return (
@@ -47,6 +63,30 @@ export default function Configuracoes() {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="card mb16">
+        <div className="card-title">📦 Embalagem & Conferência</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 14 }}>
+          Usado na conferência automática: Diferença = Produzido − Perda − (displays × un. + maços × un.)
+        </div>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="fg" style={{ margin: 0 }}>
+            <label>Un. por Display (atual: {fmtNum(uniDisplay)})</label>
+            <input type="number" min="1" placeholder={String(uniDisplay)} value={emb.display} onChange={e => setEmb(v => ({ ...v, display: e.target.value }))} style={{ width: 160 }} />
+          </div>
+          <div className="fg" style={{ margin: 0 }}>
+            <label>Un. por Maço (atual: {fmtNum(uniMaco)})</label>
+            <input type="number" min="1" placeholder={String(uniMaco)} value={emb.maco} onChange={e => setEmb(v => ({ ...v, maco: e.target.value }))} style={{ width: 160 }} />
+          </div>
+          <div className="fg" style={{ margin: 0 }}>
+            <label>Tolerância % (atual: {tolerancia}%)</label>
+            <input type="number" min="0" step="0.5" placeholder={String(tolerancia)} value={emb.tol} onChange={e => setEmb(v => ({ ...v, tol: e.target.value }))} style={{ width: 160 }} />
+          </div>
+          <button className="btn btn-primary" onClick={handleSalvarEmb} disabled={savingEmb || (!emb.display && !emb.maco && !emb.tol)}>
+            {savingEmb ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
       </div>
 
       <div className="card mb16">

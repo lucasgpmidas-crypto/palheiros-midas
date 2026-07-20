@@ -5,7 +5,7 @@ import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useRegistros, useFuncionarios, useConfig } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
-import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, exportCSV } from '../lib/utils'
+import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, exportCSV, isProducao } from '../lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
@@ -22,7 +22,7 @@ export default function HistIndividual() {
   const { registros, loading } = useRegistros({ funcId: funcId || undefined, dataInicio: ini, dataFim: getHoje() })
 
   const f = funcionarios.find(x => x.id === Number(funcId))
-  const ativos = funcionarios.filter(x => x.situacao === 'ativo')
+  const ativos = funcionarios.filter(x => x.situacao === 'ativo' && isProducao(x))
 
   const total     = registros.reduce((s, r) => s + r.quantidade, 0)
   const valor     = registros.reduce((s, r) => s + Number(r.valor || 0), 0)

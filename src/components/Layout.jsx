@@ -11,7 +11,8 @@ const ADMIN_NAV = [
   { to: '/registro',      icon: '✏️',  label: 'Registrar Produção' },
   { to: '/historico',     icon: '📋', label: 'Histórico' },
   { section: 'Gestão' },
-  { to: '/cq',            icon: '🔍', label: 'Controle de Qualidade' },
+  { to: '/cq',            icon: '📦', label: 'Revisão & Empacote' },
+  { to: '/conferencia',   icon: '⚖️', label: 'Conferência' },
   { to: '/funcionarios',  icon: '👥', label: 'Funcionários' },
   { to: '/alertas',       icon: '🔔', label: 'Alertas' },
   { section: 'Históricos' },
@@ -31,11 +32,19 @@ const FUNC_NAV = [
   { to: '/hist-equipe',    icon: '🏆', label: 'Ranking da Equipe' },
 ]
 
+const FIN_NAV = [
+  { section: 'Finalização' },
+  { to: '/cq',             icon: '📦', label: 'Revisão & Empacote' },
+  { section: 'Equipe' },
+  { to: '/hist-equipe',    icon: '🏆', label: 'Ranking da Equipe' },
+]
+
 const PAGE_TITLES = {
   '/':                'Dashboard',
   '/registro':        'Registrar Produção',
   '/historico':       'Histórico',
-  '/cq':              'Controle de Qualidade',
+  '/cq':              'Revisão & Empacotamento',
+  '/conferencia':     'Conferência de Produção',
   '/funcionarios':    'Funcionários',
   '/alertas':         'Alertas',
   '/hist-individual': 'Histórico Individual',
@@ -47,12 +56,12 @@ const PAGE_TITLES = {
 }
 
 export default function Layout() {
-  const { sair, isAdmin, isFunc, funcSession, session } = useAuth()
+  const { sair, isAdmin, isFunc, isFinalizacao, funcSession, session } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const nav = isAdmin ? ADMIN_NAV : FUNC_NAV
+  const nav = isAdmin ? ADMIN_NAV : isFinalizacao ? FIN_NAV : FUNC_NAV
   const hoje = format(new Date(), "EEE, dd 'de' MMM", { locale: ptBR })
   const title = PAGE_TITLES[location.pathname] || 'Palheiros Midas'
 
@@ -60,7 +69,7 @@ export default function Layout() {
     ? (session?.user?.email?.split('@')[0] || 'Admin')
     : (funcSession?.nome?.split(' ')[0] || 'Funcionário')
 
-  const userRole = isAdmin ? 'Administrador' : 'Funcionário'
+  const userRole = isAdmin ? 'Administrador' : isFinalizacao ? 'Finalização' : 'Funcionário'
   const avatarText = isAdmin ? 'AD' : getIniciais(funcSession?.nome || '')
   const avatarBg = isAdmin ? 'linear-gradient(135deg,var(--gold-dark),var(--gold))' : avatarCor(funcSession?.id || 0)
 

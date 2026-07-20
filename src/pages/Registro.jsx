@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useRegistros, useFuncionarios, useConfig } from '../lib/hooks'
-import { getHoje, fmtMoeda, fmtNum, fmtData, calcValor, pctMeta, corPct } from '../lib/utils'
+import { getHoje, fmtMoeda, fmtNum, fmtData, calcValor, pctMeta, corPct, isProducao } from '../lib/utils'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 
@@ -15,8 +15,9 @@ export default function Registro() {
   const [saving, setSaving] = useState(false)
   const [editando, setEditando] = useState(null)
   const [excluindo, setExcluindo] = useState(null)
+  const [justAdded, setJustAdded] = useState(null)
 
-  const ativos = funcionarios.filter(f => f.situacao === 'ativo')
+  const ativos = funcionarios.filter(f => f.situacao === 'ativo' && isProducao(f))
   const regsData = registros.filter(r => r.data === dataReg).sort((a, b) => b.quantidade - a.quantidade)
 
   const previewQty  = parseInt(form.qty) || 0
@@ -31,8 +32,13 @@ export default function Registro() {
     const aprov = parseInt(form.aprov) || null
     if (aprov && aprov > parseInt(form.qty)) return
     setSaving(true)
+    const nomeFunc = ativos.find(f => f.id === Number(form.funcId))?.nome
     const ok = await registrar({ funcId: Number(form.funcId), quantidade: parseInt(form.qty), aproveitado: aprov, data: dataReg, obs: form.obs, valorMil })
-    if (ok) setForm({ funcId: '', qty: '', aprov: '', obs: '' })
+    if (ok) {
+      setForm({ funcId: '', qty: '', aprov: '', obs: '' })
+      setJustAdded(nomeFunc || 'Funcionário')
+      setTimeout(() => setJustAdded(null), 3000)
+    }
     setSaving(false)
   }
 
@@ -90,6 +96,12 @@ export default function Registro() {
             {saving ? '...' : '✓ Registrar'}
           </button>
         </div>
+        {justAdded && (
+          <div style={{ display:'flex', alignItems:'center', gap:10, background:'rgba(40,180,133,.1)', border:'1px solid rgba(40,180,133,.25)', borderRadius:'var(--rs)', padding:'9px 14px', fontSize:13, color:'var(--green)', marginTop:6, animation:'slideUp .25s ease' }}>
+            <span style={{ fontSize:18 }}>✅</span>
+            <span><strong>{justAdded}</strong> registrado com sucesso!</span>
+          </div>
+        )}
         {previewQty > 0 && (
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', background: 'var(--bg3)', borderRadius: 'var(--rs)', padding: '8px 14px', fontSize: 12.5, marginTop: 6 }}>
             <span style={{ color: 'var(--text3)' }}>Produzido: <strong style={{ color: 'var(--text)' }}>{fmtNum(previewQty)} un.</strong></span>

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { subDays, format } from 'date-fns'
-import { useCQ, useFuncionarios } from '../lib/hooks'
-import { getHoje, fmtNum, fmtData, exportCSV } from '../lib/utils'
+import { useCQ, useFuncionarios, useRegistros, useConfig } from '../lib/hooks'
+import { useAuth } from '../lib/auth'
+import { getHoje, fmtNum, fmtData, exportCSV, sugerirEmpacote, isProducao } from '../lib/utils'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 import toast from 'react-hot-toast'
@@ -10,6 +11,7 @@ const TIPOS = ['Original', 'Menta', 'Ouro', 'Outro']
 const FORM0 = { funcId: '', data: getHoje(), os: '', tipo: 'Original', entregue: '', revisada: '', display: '', macos: '', obs: '' }
 
 export default function ControleCQ() {
+  const { isAdmin, funcSession } = useAuth()
   const hoje = getHoje()
   const ini30 = format(subDays(new Date(), 30), 'yyyy-MM-dd')
   const [form, setForm] = useState(FORM0)
@@ -20,15 +22,22 @@ export default function ControleCQ() {
   const [aplicados, setAplicados] = useState({ ...filtros })
 
   const { funcionarios } = useFuncionarios()
+  const { uniDisplay, uniMaco } = useConfig()
   const { cqRegistros, loading, registrar, atualizar, excluir } = useCQ({ funcId: aplicados.funcId || undefined, dataInicio: aplicados.dataInicio, dataFim: aplicados.dataFim, tipo: aplicados.tipo || undefined })
+  // Produção declarada pelo funcionário na data selecionada no formulário
+  const { registros: regsDia } = useRegistros({ data: form.data })
+  const prodDeclarada = form.funcId ? (regsDia.find(r => r.func_id === Number(form.funcId))?.quantidade || 0) : null
 
-  const ativos = funcionarios.filter(f => f.situacao === 'ativo')
+  // Só enroladores (produção) aparecem para seleção — a finalização revisa a produção deles
+  const ativos = funcionarios.filter(f => f.situacao === 'ativo' && isProducao(f))
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const ent = parseInt(form.entregue) || 0
   const rev = parseInt(form.revisada) || 0
   const perda = ent - rev
   const taxa = ent > 0 ? Math.round(rev / ent * 100) : 0
+  const sug = rev > 0 ? sugerirEmpacote(rev, uniDisplay, uniMaco) : null
+  const empacotado = (parseInt(form.display) || 0) * uniDisplay + (parseInt(form.macos) || 0) * uniMaco
 
   const handleRegistrar = async () => {
     if (!form.funcId) { toast.error('Selecione um funcionário'); return }
@@ -36,12 +45,13 @@ export default function ControleCQ() {
     if (rev > ent) { toast.error('Revisada não pode ser maior que entregue'); return }
     if (form.data > hoje) { toast.error('Data não pode ser futura'); return }
     setSaving(true)
-    const ok = await registrar({ func_id: Number(form.funcId), data: form.data, os: form.os || null, tipo: form.tipo, entregue: ent, revisada: rev, display: parseInt(form.display) || 0, macos: parseInt(form.macos) || 0, obs: form.obs || null })
+    const ok = await registrar({ func_id: Number(form.funcId), data: form.data, os: form.os || null, tipo: form.tipo, entregue: ent, revisada: rev, display: parseInt(form.display) || 0, macos: parseInt(form.macos) || 0, obs: form.obs || null, registrado_por: isAdmin ? 'Admin' : funcSession?.nome || null })
     if (ok) setForm(FORM0)
     setSaving(false)
   }
 
   const handleSalvarEdicao = async () => {
+    if (!isAdmin) return
     if (!editando) return
     const e2 = parseInt(editando.entregue) || 0
     const r2 = parseInt(editando.revisada) || 0
@@ -60,7 +70,7 @@ export default function ControleCQ() {
   const badgeTipo = (t) => ({ Original: 'b-blue', Menta: 'b-green', Ouro: 'b-gold', Outro: 'b-amber' }[t] || 'b-amber')
 
   // Ranking por funcionário
-  const ativos2 = funcionarios.filter(f => f.situacao === 'ativo')
+  const ativos2 = funcionarios.filter(f => f.situacao === 'ativo' && isProducao(f))
   const rankData = ativos2.map(f => {
     const fr = cqRegistros.filter(r => r.func_id === f.id)
     if (!fr.length) return null
@@ -87,7 +97,7 @@ export default function ControleCQ() {
     <div>
       {/* Formulário */}
       <div className="card mb16">
-        <div className="card-title">🔍 Registrar Controle de Qualidade</div>
+        <div className="card-title">📦 Registrar Revisão & Empacotamento</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.6fr 1fr 1fr 0.7fr 0.7fr 0.6fr', gap: 10, alignItems: 'flex-end', marginBottom: 10 }}>
           {[
             { label: 'Funcionário', el: <select value={form.funcId} onChange={e => setF('funcId', e.target.value)}><option value="">Selecionar...</option>{ativos.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}</select> },
@@ -105,17 +115,56 @@ export default function ControleCQ() {
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
           <div className="fg" style={{ margin: 0, flex: 1 }}><label>Observação</label><input type="text" value={form.obs} placeholder="Observações..." onChange={e => setF('obs', e.target.value)} /></div>
           <button className="btn btn-primary" onClick={handleRegistrar} disabled={saving} style={{ height: 40 }}>
-            {saving ? '...' : '✓ Registrar CQ'}
+            {saving ? '...' : '✓ Registrar Revisão'}
           </button>
         </div>
+
+        {/* Produção declarada pelo funcionário na data */}
+        {form.funcId && (
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', background: prodDeclarada > 0 ? 'rgba(201,162,39,.07)' : 'rgba(245,158,11,.07)', border: `1px solid ${prodDeclarada > 0 ? 'rgba(201,162,39,.25)' : 'rgba(245,158,11,.25)'}`, borderRadius: 'var(--rs)', padding: '8px 14px', fontSize: 12.5, marginTop: 8 }}>
+            {prodDeclarada > 0 ? <>
+              <span style={{ color: 'var(--text3)' }}>🌾 Produção declarada em {fmtData(form.data)}: <strong style={{ color: 'var(--gold-light)' }}>{fmtNum(prodDeclarada)} un.</strong></span>
+              {ent !== prodDeclarada && (
+                <button className="btn btn-secondary btn-xs" onClick={() => setF('entregue', String(prodDeclarada))}>Usar como entregue</button>
+              )}
+              {ent > 0 && ent !== prodDeclarada && (
+                <span style={{ color: 'var(--amber)', fontWeight: 700 }}>⚠ Entregue difere do declarado ({ent > prodDeclarada ? '+' : '−'}{fmtNum(Math.abs(ent - prodDeclarada))} un.)</span>
+              )}
+            </> : (
+              <span style={{ color: 'var(--amber)' }}>⚠ Este funcionário não registrou produção em {fmtData(form.data)}</span>
+            )}
+          </div>
+        )}
+
         {ent > 0 && (
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', background: 'var(--bg3)', borderRadius: 'var(--rs)', padding: '8px 14px', fontSize: 12.5, marginTop: 8 }}>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', background: 'var(--bg3)', borderRadius: 'var(--rs)', padding: '8px 14px', fontSize: 12.5, marginTop: 8 }}>
             <span style={{ color: 'var(--text3)' }}>Entregue: <strong style={{ color: 'var(--text)' }}>{fmtNum(ent)} un.</strong></span>
             {rev > 0 && <>
               <span style={{ color: 'var(--text3)' }}>Revisado: <strong style={{ color: 'var(--green)' }}>{fmtNum(rev)} un.</strong></span>
               <span style={{ color: 'var(--text3)' }}>Perda: <strong style={{ color: 'var(--red)' }}>{fmtNum(perda)} un.</strong></span>
               <span style={{ color: 'var(--text3)' }}>Aproveitamento: <strong style={{ color: taxaCor(taxa) }}>{taxa}%</strong></span>
             </>}
+            {empacotado > 0 && (
+              <span style={{ color: 'var(--text3)' }}>Empacotado: <strong style={{ color: 'var(--blue)' }}>{fmtNum(empacotado)} un.</strong></span>
+            )}
+            {rev > 0 && empacotado > 0 && rev !== empacotado && (
+              <span style={{ color: 'var(--amber)', fontWeight: 700 }}>
+                {rev > empacotado ? `⚠ ${fmtNum(rev - empacotado)} un. revisadas sem empacotar` : `⚠ empacotado excede o revisado em ${fmtNum(empacotado - rev)} un.`}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Sugestão de empacotamento */}
+        {sug && (sug.displays > 0 || sug.macos > 0) && (
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', background: 'rgba(59,130,246,.07)', border: '1px solid rgba(59,130,246,.2)', borderRadius: 'var(--rs)', padding: '8px 14px', fontSize: 12.5, marginTop: 8 }}>
+            <span style={{ color: 'var(--text3)' }}>
+              💡 Sugestão para {fmtNum(rev)} un. revisadas: <strong style={{ color: 'var(--blue)' }}>{sug.displays} displays + {sug.macos} maços</strong>
+              {sug.avulso > 0 && <span style={{ color: 'var(--amber)' }}> ({sug.avulso} un. avulsas)</span>}
+            </span>
+            {(String(sug.displays) !== form.display || String(sug.macos) !== form.macos) && (
+              <button className="btn btn-secondary btn-xs" onClick={() => setForm(f => ({ ...f, display: String(sug.displays), macos: String(sug.macos) }))}>Aplicar</button>
+            )}
           </div>
         )}
       </div>
@@ -149,12 +198,12 @@ export default function ControleCQ() {
 
       {/* Tabela */}
       <div className="card mb16">
-        <div className="card-title">📋 Registros de Controle de Qualidade</div>
+        <div className="card-title">📋 Registros de Revisão & Empacotamento</div>
         {loading ? <div className="loading"><div className="spin" /></div>
           : cqRegistros.length === 0
-            ? <div className="empty-state"><div className="es-icon">🔍</div><div className="es-text">Nenhum registro de CQ no período</div></div>
+            ? <div className="empty-state"><div className="es-icon">📦</div><div className="es-text">Nenhum registro de revisão no período</div></div>
             : <div className="table-wrap"><table>
-                <thead><tr><th>Data</th><th>Funcionário</th><th>OS</th><th>Tipo</th><th>Entregue</th><th>Revisado</th><th>Display</th><th>Maços</th><th>Perda</th><th>% Aprov.</th><th>% Perda</th><th>Obs.</th><th>Ações</th></tr></thead>
+                <thead><tr><th>Data</th><th>Funcionário</th><th>OS</th><th>Tipo</th><th>Entregue</th><th>Revisado</th><th>Display</th><th>Maços</th><th>Perda</th><th>% Aprov.</th><th>% Perda</th><th>Por</th><th>Obs.</th>{isAdmin && <th>Ações</th>}</tr></thead>
                 <tbody>{cqRegistros.map(r => {
                   const ptaxa = r.entregue > 0 ? Math.round(r.perda / r.entregue * 100) : 0
                   return (
@@ -170,11 +219,12 @@ export default function ControleCQ() {
                       <td style={{ color: 'var(--red)' }}>{fmtNum(r.perda)} un.</td>
                       <td><span style={{ fontWeight: 700, color: taxaCor(r.taxa) }}>{r.taxa}%</span></td>
                       <td style={{ color: 'var(--red)' }}>{ptaxa}%</td>
+                      <td style={{ color: 'var(--text3)' }}>{r.registrado_por || '—'}</td>
                       <td style={{ color: 'var(--text3)' }}>{r.obs || '—'}</td>
-                      <td><div style={{ display: 'flex', gap: 5 }}>
+                      {isAdmin && <td><div style={{ display: 'flex', gap: 5 }}>
                         <button className="btn btn-secondary btn-xs" onClick={() => setEditando({ ...r })}>✏️</button>
                         <button className="btn btn-danger btn-xs" onClick={() => setExcluindo(r)}>🗑</button>
-                      </div></td>
+                      </div></td>}
                     </tr>
                   )
                 })}</tbody>
@@ -250,7 +300,7 @@ export default function ControleCQ() {
       )}
 
       {excluindo && (
-        <ConfirmModal title="Excluir registro de CQ?" onConfirm={async () => { await excluir(excluindo.id); setExcluindo(null) }} onCancel={() => setExcluindo(null)}
+        <ConfirmModal title="Excluir registro de CQ?" onConfirm={async () => { if (isAdmin) await excluir(excluindo.id); setExcluindo(null) }} onCancel={() => setExcluindo(null)}
           details={[['Funcionário', excluindo.funcionarios?.nome], ['Data', fmtData(excluindo.data)], ['Entregue', fmtNum(excluindo.entregue) + ' un.'], ['Taxa', excluindo.taxa + '%']]} />
       )}
     </div>

@@ -1,22 +1,41 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { Bar } from 'react-chartjs-2'
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, LineElement, PointElement } from 'chart.js'
 import { subDays, format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { useRegistros, useFuncionarios, useConfig } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
-import { getHoje, fmtMoeda, fmtNum, pctMeta, corPct, avatarCor, getIniciais } from '../lib/utils'
+import { getHoje, fmtMoeda, fmtNum, pctMeta, corPct, avatarCor, getIniciais, ultimosDias, calcValor } from '../lib/utils'
+import toast from 'react-hot-toast'
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, LineElement, PointElement)
 
 export default function MinhaProducao() {
-  const { funcSession } = useAuth()
+  const { funcSession, isFinalizacao } = useAuth()
   const funcId = funcSession?.id
   const { funcionarios } = useFuncionarios()
   const { valorMil } = useConfig()
   const hoje = getHoje()
   const ini30 = format(subDays(new Date(), 30), 'yyyy-MM-dd')
 
-  const { registros: regsHoje }  = useRegistros({ data: hoje })
-  const { registros: meusRegs }  = useRegistros({ funcId, dataInicio: ini30, dataFim: hoje })
+  const { registros: regsHoje, registrar }        = useRegistros({ data: hoje })
+  const { registros: meusRegs, refetch: refetchMeus } = useRegistros({ funcId, dataInicio: ini30, dataFim: hoje })
+
+  const [qtd, setQtd] = useState('')
+  const [obs, setObs] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const f = funcionarios.find(x => x.id === funcId)
   const meuHoje = regsHoje.find(r => r.func_id === funcId)
+
+  const handleRegistrar = async () => {
+    const q = parseInt(qtd)
+    if (!q || q <= 0) { toast.error('Informe a quantidade produzida'); return }
+    setSaving(true)
+    const ok = await registrar({ funcId, quantidade: q, data: hoje, obs, valorMil })
+    if (ok) { setQtd(''); setObs(''); await refetchMeus() }
+    setSaving(false)
+  }
   const rankHoje = [...regsHoje].sort((a, b) => b.quantidade - a.quantidade)
   const minhaPos = rankHoje.findIndex(r => r.func_id === funcId) + 1
 
@@ -24,6 +43,35 @@ export default function MinhaProducao() {
   const valor30  = meusRegs.reduce((s, r) => s + Number(r.valor || 0), 0)
   const media30  = meusRegs.length ? Math.round(total30 / meusRegs.length) : 0
   const diasMeta = f ? meusRegs.filter(r => r.quantidade >= f.meta_diaria).length : 0
+
+  const chartData = useMemo(() => {
+    const dias14 = ultimosDias(14)
+    const labels = dias14.map(d => format(new Date(d + 'T12:00'), 'dd/MM', { locale: ptBR }))
+    const dados  = dias14.map(d => meusRegs.find(r => r.data === d)?.quantidade || 0)
+    const meta   = Array(14).fill(f?.meta_diaria || 0)
+    return {
+      labels,
+      datasets: [
+        {
+          type: 'bar',
+          data: dados,
+          backgroundColor: dados.map(v => f?.meta_diaria && v >= f.meta_diaria ? 'rgba(40,180,133,.3)' : 'rgba(201,162,39,.2)'),
+          borderColor: dados.map(v => f?.meta_diaria && v >= f.meta_diaria ? '#28B485' : '#C9A227'),
+          borderWidth: 1.5,
+          borderRadius: 4,
+        },
+        {
+          type: 'line',
+          data: meta,
+          borderColor: 'rgba(201,162,39,.4)',
+          borderWidth: 1.5,
+          borderDash: [5, 4],
+          pointRadius: 0,
+          fill: false,
+        },
+      ],
+    }
+  }, [meusRegs, f])
 
   const MEDALS = ['🥇', '🥈', '🥉']
   const posLabel = minhaPos > 0 ? (MEDALS[minhaPos - 1] || '#' + minhaPos) : '—'
@@ -50,6 +98,37 @@ export default function MinhaProducao() {
           }
         </div>
       </div>
+
+      {/* Registrar produção de hoje */}
+      {!isFinalizacao && (
+        <div className="card mb16">
+          <div className="card-title">✏️ Registrar Minha Produção — Hoje</div>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div className="fg" style={{ margin: 0, width: 170 }}>
+              <label>Quantidade (un.)</label>
+              <input type="number" min="0" inputMode="numeric" value={qtd} placeholder={`Ex: ${fmtNum(f?.meta_diaria || 3000)}`} onChange={e => setQtd(e.target.value)} />
+            </div>
+            <div className="fg" style={{ margin: 0, flex: 1, minWidth: 170 }}>
+              <label>Observação</label>
+              <input value={obs} placeholder="Opcional..." onChange={e => setObs(e.target.value)} />
+            </div>
+            <button className="btn btn-primary" onClick={handleRegistrar} disabled={saving} style={{ height: 40 }}>
+              {saving ? '...' : meuHoje ? '✓ Atualizar Registro' : '✓ Registrar Produção'}
+            </button>
+          </div>
+          {parseInt(qtd) > 0 && (
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', background: 'var(--bg3)', borderRadius: 'var(--rs)', padding: '8px 14px', fontSize: 12.5, marginTop: 10 }}>
+              <span style={{ color: 'var(--text3)' }}>Valor estimado: <strong style={{ color: 'var(--green)' }}>{fmtMoeda(calcValor(parseInt(qtd), valorMil))}</strong></span>
+              {f?.meta_diaria > 0 && <span style={{ color: 'var(--text3)' }}>Meta: <strong style={{ color: corPct(pctMeta(parseInt(qtd), f.meta_diaria)) }}>{pctMeta(parseInt(qtd), f.meta_diaria)}%</strong></span>}
+            </div>
+          )}
+          {meuHoje && (
+            <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 8 }}>
+              ℹ️ Você já registrou {fmtNum(meuHoje.quantidade)} un. hoje. Registrar novamente substitui o valor anterior.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="stat-grid mb16">
@@ -105,24 +184,44 @@ export default function MinhaProducao() {
 
         {/* Minha evolução */}
         <div className="card">
-          <div className="card-title">📈 Minha Evolução — 30 Dias</div>
+          <div className="card-title">
+            📈 Minha Evolução — 14 Dias
+            {f?.meta_diaria ? <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text3)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>linha = meta {fmtNum(f.meta_diaria)} un.</span> : null}
+          </div>
           {meusRegs.length === 0
             ? <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Sem registros no período</div></div>
-            : <div className="table-wrap"><table>
-                <thead><tr><th>Data</th><th>Dia</th><th>Produção</th><th>Valor</th><th>Meta</th></tr></thead>
-                <tbody>{meusRegs.slice(0, 15).map(r => {
-                  const pct = f ? pctMeta(r.quantidade, f.meta_diaria) : 0
-                  return (
-                    <tr key={r.id}>
-                      <td>{new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</td>
-                      <td style={{ color: 'var(--text3)' }}>{new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short' })}</td>
-                      <td><strong style={{ color: 'var(--text)' }}>{fmtNum(r.quantidade)} un.</strong></td>
-                      <td style={{ color: 'var(--green)' }}>{fmtMoeda(Number(r.valor))}</td>
-                      <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
-                    </tr>
-                  )
-                })}</tbody>
-              </table></div>
+            : (
+              <>
+                <div className="chart-wrap" style={{ height: 180, marginBottom: 16 }}>
+                  <Bar
+                    data={chartData}
+                    options={{
+                      responsive: true, maintainAspectRatio: false,
+                      plugins: { legend: { display: false } },
+                      scales: {
+                        x: { ticks: { color: '#5E6A8A', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.04)' } },
+                        y: { ticks: { color: '#5E6A8A', font: { size: 10 }, callback: v => fmtNum(v) }, grid: { color: 'rgba(255,255,255,.04)' } },
+                      },
+                    }}
+                  />
+                </div>
+                <div className="table-wrap"><table>
+                  <thead><tr><th>Data</th><th>Dia</th><th>Produção</th><th>Valor</th><th>Meta</th></tr></thead>
+                  <tbody>{meusRegs.slice(0, 10).map(r => {
+                    const pct = f ? pctMeta(r.quantidade, f.meta_diaria) : 0
+                    return (
+                      <tr key={r.id}>
+                        <td>{new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</td>
+                        <td style={{ color: 'var(--text3)' }}>{new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short' })}</td>
+                        <td><strong style={{ color: 'var(--text)' }}>{fmtNum(r.quantidade)} un.</strong></td>
+                        <td style={{ color: 'var(--green)' }}>{fmtMoeda(Number(r.valor))}</td>
+                        <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
+                      </tr>
+                    )
+                  })}</tbody>
+                </table></div>
+              </>
+            )
           }
         </div>
       </div>

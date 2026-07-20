@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 
@@ -8,13 +8,42 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [funcId, setFuncId] = useState('')
-  const [pin, setPin] = useState('')
+  const [pinDigits, setPinDigits] = useState(['', '', '', ''])
   const [loading, setLoading] = useState(false)
   const [funcionarios, setFuncionarios] = useState([])
   const [erro, setErro] = useState('')
 
+  const pinR0 = useRef(null)
+  const pinR1 = useRef(null)
+  const pinR2 = useRef(null)
+  const pinR3 = useRef(null)
+  const pinRefs = [pinR0, pinR1, pinR2, pinR3]
+  const pin = pinDigits.join('')
+
+  const handlePinChange = (i, val) => {
+    const d = val.replace(/\D/g, '').slice(-1)
+    const next = [...pinDigits]
+    next[i] = d
+    setPinDigits(next)
+    if (d && i < 3) pinRefs[i + 1].current?.focus()
+  }
+
+  const handlePinKeyDown = (i, e) => {
+    if (e.key === 'Backspace' && !pinDigits[i] && i > 0) pinRefs[i - 1].current?.focus()
+    if (e.key === 'Enter') handleSubmit(e)
+  }
+
+  const handlePinPaste = (e) => {
+    e.preventDefault()
+    const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4)
+    const next = ['', '', '', '']
+    paste.split('').forEach((c, idx) => { next[idx] = c })
+    setPinDigits(next)
+    pinRefs[Math.min(paste.length, 3)].current?.focus()
+  }
+
   useEffect(() => {
-    supabase.from('funcionarios').select('id,nome,pin,situacao').eq('situacao','ativo').order('nome')
+    supabase.from('funcionarios').select('id,nome,situacao').eq('situacao','ativo').order('nome')
       .then(({ data }) => setFuncionarios(data || []))
   }, [])
 
@@ -28,11 +57,17 @@ export default function Login() {
       if (!r.ok) setErro(r.msg)
     } else {
       if (!funcId) { setErro('Selecione seu nome'); setLoading(false); return }
-      if (!pin)    { setErro('Digite seu PIN'); setLoading(false); return }
+      if (pin.length < 4) { setErro('Digite os 4 dígitos do PIN'); setLoading(false); return }
       const r = await entrarFuncionario(Number(funcId), pin)
       if (!r.ok) setErro(r.msg)
     }
     setLoading(false)
+  }
+
+  const trocarModo = (m) => {
+    setModo(m)
+    setErro('')
+    setPinDigits(['', '', '', ''])
   }
 
   return (
@@ -47,7 +82,7 @@ export default function Login() {
         {/* Seletor modo */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:20 }}>
           {[['admin','👤 ADMINISTRADOR'],['func','👥 FUNCIONÁRIO']].map(([m, label]) => (
-            <button key={m} onClick={() => { setModo(m); setErro('') }} style={{
+            <button key={m} onClick={() => trocarModo(m)} style={{
               padding:10, borderRadius:8, cursor:'pointer', transition:'all .2s',
               fontFamily:'Barlow Condensed,sans-serif', fontSize:13, fontWeight:700, letterSpacing:.5,
               border: modo===m ? (m==='admin'?'2px solid var(--gold)':'2px solid var(--blue)') : '2px solid var(--border2)',
@@ -75,12 +110,35 @@ export default function Login() {
                 <label>Selecione seu nome</label>
                 <select value={funcId} onChange={e=>setFuncId(e.target.value)}>
                   <option value="">Selecionar...</option>
-                  {funcionarios.map(f => <option key={f.id} value={f.id}>{f.nome}{!f.pin?' (sem PIN)':''}</option>)}
+                  {funcionarios.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
                 </select>
               </div>
-              <div className="fg" style={{ textAlign:'left' }}>
-                <label>PIN (4 dígitos)</label>
-                <input type="password" value={pin} onChange={e=>setPin(e.target.value)} maxLength={4} placeholder="••••" inputMode="numeric" style={{ letterSpacing:8, fontSize:22, textAlign:'center' }} onKeyDown={e=>e.key==='Enter'&&handleSubmit(e)} />
+              <div className="fg">
+                <label style={{ display:'block', textAlign:'center', marginBottom:10 }}>PIN (4 dígitos)</label>
+                <div style={{ display:'flex', gap:10, justifyContent:'center' }}>
+                  {pinDigits.map((d, i) => (
+                    <input
+                      key={i}
+                      ref={pinRefs[i]}
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={d}
+                      onChange={e => handlePinChange(i, e.target.value)}
+                      onKeyDown={e => handlePinKeyDown(i, e)}
+                      onPaste={handlePinPaste}
+                      autoFocus={i === 0}
+                      style={{
+                        width:58, height:58, textAlign:'center', fontSize:28, padding:0,
+                        borderRadius:12, fontFamily:"'Barlow Condensed',sans-serif", fontWeight:800,
+                        background: d ? 'rgba(201,162,39,.12)' : 'var(--bg3)',
+                        border: d ? '2px solid var(--gold)' : '2px solid var(--border)',
+                        color:'var(--text)', outline:'none', transition:'all .15s',
+                        boxShadow: d ? '0 0 0 3px rgba(201,162,39,.15)' : 'none',
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             </>
           )}

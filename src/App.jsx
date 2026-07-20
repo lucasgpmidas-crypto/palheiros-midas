@@ -15,34 +15,50 @@ import HistEquipe from './pages/HistEquipe'
 import MinhaProducao from './pages/MinhaProducao'
 import Configuracoes from './pages/Configuracoes'
 import Presidio from './pages/Presidio'
+import Conferencia from './pages/Conferencia'
+
+// Página inicial do funcionário conforme o setor
+const funcHome = (funcSession) => funcSession?.setor === 'finalizacao' ? '/cq' : '/minha-producao'
 
 function ProtectedRoute({ children, adminOnly = false }) {
-  const { isLogado, isAdmin, loading } = useAuth()
+  const { isLogado, isAdmin, funcSession, loading } = useAuth()
   if (loading) return <div className="loading"><div className="spin" /></div>
   if (!isLogado) return <Navigate to="/login" replace />
-  if (adminOnly && !isAdmin) return <Navigate to="/minha-producao" replace />
+  if (adminOnly && !isAdmin) return <Navigate to={funcHome(funcSession)} replace />
+  return children
+}
+
+// Rota da Revisão & Empacotamento: admin ou funcionário do setor finalização
+function RevisaoRoute({ children }) {
+  const { isAdmin, isFinalizacao } = useAuth()
+  if (!isAdmin && !isFinalizacao) return <Navigate to="/minha-producao" replace />
   return children
 }
 
 function AppRoutes() {
-  const { isLogado, isAdmin, loading } = useAuth()
+  const { isLogado, isAdmin, funcSession, loading } = useAuth()
   if (loading) return <div className="loading"><div className="spin" /></div>
+
+  const home = isAdmin ? '/' : funcHome(funcSession)
 
   return (
     <Routes>
-      <Route path="/login" element={isLogado ? <Navigate to={isAdmin ? '/' : '/minha-producao'} replace /> : <Login />} />
+      <Route path="/login" element={isLogado ? <Navigate to={home} replace /> : <Login />} />
 
       <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         {/* Admin routes */}
         <Route index element={<ProtectedRoute adminOnly><Dashboard /></ProtectedRoute>} />
         <Route path="registro"      element={<ProtectedRoute adminOnly><Registro /></ProtectedRoute>} />
         <Route path="historico"     element={<ProtectedRoute adminOnly><Historico /></ProtectedRoute>} />
-        <Route path="cq"            element={<ProtectedRoute adminOnly><ControleCQ /></ProtectedRoute>} />
         <Route path="funcionarios"  element={<ProtectedRoute adminOnly><Funcionarios /></ProtectedRoute>} />
         <Route path="alertas"       element={<ProtectedRoute adminOnly><Alertas /></ProtectedRoute>} />
+        <Route path="conferencia"   element={<ProtectedRoute adminOnly><Conferencia /></ProtectedRoute>} />
         <Route path="relatorios"    element={<ProtectedRoute adminOnly><Relatorios /></ProtectedRoute>} />
         <Route path="configuracoes" element={<ProtectedRoute adminOnly><Configuracoes /></ProtectedRoute>} />
         <Route path="presidio"      element={<ProtectedRoute adminOnly><Presidio /></ProtectedRoute>} />
+
+        {/* Revisão & Empacotamento (admin + setor finalização) */}
+        <Route path="cq" element={<ProtectedRoute><RevisaoRoute><ControleCQ /></RevisaoRoute></ProtectedRoute>} />
 
         {/* Shared routes (admin + funcionario) */}
         <Route path="hist-individual" element={<ProtectedRoute><HistIndividual /></ProtectedRoute>} />
@@ -50,7 +66,7 @@ function AppRoutes() {
         <Route path="minha-producao"  element={<ProtectedRoute><MinhaProducao /></ProtectedRoute>} />
       </Route>
 
-      <Route path="*" element={<Navigate to={isLogado ? (isAdmin ? '/' : '/minha-producao') : '/login'} replace />} />
+      <Route path="*" element={<Navigate to={isLogado ? home : '/login'} replace />} />
     </Routes>
   )
 }

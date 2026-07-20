@@ -149,20 +149,36 @@ export function useCQ(filtros = {}) {
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
+const CFG_KEYS = { valor_mil: 'valorMil', uni_display: 'uniDisplay', uni_maco: 'uniMaco', tolerancia_conf: 'tolerancia' }
+
 export function useConfig() {
-  const [valorMil, setValorMil] = useState(75)
+  const [cfg, setCfg] = useState({ valorMil: 75, uniDisplay: 200, uniMaco: 20, tolerancia: 2 })
 
   useEffect(() => {
-    supabase.from('configuracoes').select('valor').eq('chave', 'valor_mil').single()
-      .then(({ data }) => { if (data) setValorMil(Number(data.valor)) })
+    supabase.from('configuracoes').select('chave, valor').in('chave', Object.keys(CFG_KEYS))
+      .then(({ data }) => {
+        if (!data?.length) return
+        setCfg(c => {
+          const next = { ...c }
+          data.forEach(({ chave, valor }) => {
+            const v = Number(valor)
+            if (CFG_KEYS[chave] && !isNaN(v)) next[CFG_KEYS[chave]] = v
+          })
+          return next
+        })
+      })
   }, [])
 
-  const salvarValorMil = async (v) => {
+  const salvarConfig = async (chave, valor) => {
     await supabase.from('configuracoes')
-      .upsert({ chave: 'valor_mil', valor: String(v) }, { onConflict: 'chave' })
-    setValorMil(v)
+      .upsert({ chave, valor: String(valor) }, { onConflict: 'chave' })
+    setCfg(c => ({ ...c, [CFG_KEYS[chave]]: Number(valor) }))
+  }
+
+  const salvarValorMil = async (v) => {
+    await salvarConfig('valor_mil', v)
     toast.success('Valor atualizado!')
   }
 
-  return { valorMil, salvarValorMil }
+  return { ...cfg, salvarValorMil, salvarConfig }
 }

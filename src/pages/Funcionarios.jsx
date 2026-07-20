@@ -4,7 +4,7 @@ import { fmtData, fmtNum, getHoje } from '../lib/utils'
 import Modal from '../components/Modal'
 import toast from 'react-hot-toast'
 
-const FORM0 = { nome: '', entrada: getHoje(), meta_diaria: 3000, situacao: 'ativo', pin: '', obs: '' }
+const FORM0 = { nome: '', entrada: getHoje(), meta_diaria: 3000, situacao: 'ativo', setor: 'producao', pin: '', obs: '' }
 
 export default function Funcionarios() {
   const { funcionarios, loading, salvar } = useFuncionarios()
@@ -20,14 +20,14 @@ export default function Funcionarios() {
   const abrirNovo = () => { setEditId(null); setForm(FORM0); setModal(true) }
   const abrirEditar = (f) => {
     setEditId(f.id)
-    setForm({ nome: f.nome, entrada: f.entrada, meta_diaria: f.meta_diaria, situacao: f.situacao, pin: '', obs: f.obs || '' })
+    setForm({ nome: f.nome, entrada: f.entrada, meta_diaria: f.meta_diaria, situacao: f.situacao, setor: f.setor || 'producao', pin: '', obs: f.obs || '' })
     setModal(true)
   }
 
   const handleSalvar = async () => {
     if (!form.nome.trim()) { toast.error('Informe o nome'); return }
     setSaving(true)
-    const payload = { nome: form.nome.trim(), entrada: form.entrada, meta_diaria: Math.max(1, Number(form.meta_diaria) || 3000), situacao: form.situacao, obs: form.obs || null }
+    const payload = { nome: form.nome.trim(), entrada: form.entrada, meta_diaria: Math.max(1, Number(form.meta_diaria) || 3000), situacao: form.situacao, setor: form.setor, obs: form.obs || null }
     if (form.pin) payload.pin = form.pin
     const ok = await salvar(payload, editId)
     if (ok) setModal(false)
@@ -57,7 +57,7 @@ export default function Funcionarios() {
             ? <div className="empty-state"><div className="es-icon">👥</div><div className="es-text">Nenhum funcionário encontrado</div></div>
             : <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Nome</th><th>Entrada</th><th>Meta Diária</th><th>PIN</th><th>Situação</th><th>Observações</th><th>Ações</th></tr></thead>
+                  <thead><tr><th>Nome</th><th>Entrada</th><th>Setor</th><th>Meta Diária</th><th>PIN</th><th>Situação</th><th>Observações</th><th>Ações</th></tr></thead>
                   <tbody>
                     {lista.map(f => (
                       <tr key={f.id}>
@@ -70,6 +70,7 @@ export default function Funcionarios() {
                           </div>
                         </td>
                         <td>{fmtData(f.entrada)}</td>
+                        <td><span className={`badge ${(f.setor || 'producao') === 'finalizacao' ? 'b-blue' : 'b-gold'}`}>{(f.setor || 'producao') === 'finalizacao' ? '📦 Finalização' : '🌾 Produção'}</span></td>
                         <td><span style={{ color: 'var(--gold-light)', fontWeight: 700 }}>{fmtNum(f.meta_diaria)} un.</span></td>
                         <td><span className={`badge ${f.pin ? 'b-green' : 'b-red'}`}>{f.pin ? '✓ Configurado' : 'Sem PIN'}</span></td>
                         <td><span className={`badge ${f.situacao === 'ativo' ? 'b-green' : 'b-red'}`}>{f.situacao}</span></td>
@@ -93,6 +94,12 @@ export default function Funcionarios() {
               <select value={form.situacao} onChange={e => setF('situacao', e.target.value)}>
                 <option value="ativo">Ativo</option>
                 <option value="inativo">Inativo</option>
+              </select>
+            </div>
+            <div className="fg"><label>Setor</label>
+              <select value={form.setor} onChange={e => setF('setor', e.target.value)}>
+                <option value="producao">🌾 Produção (enrolador)</option>
+                <option value="finalizacao">📦 Finalização (revisa/empacota)</option>
               </select>
             </div>
           </div>

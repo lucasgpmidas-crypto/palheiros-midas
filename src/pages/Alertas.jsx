@@ -1,18 +1,48 @@
 import { useMemo } from 'react'
 import { subDays, format } from 'date-fns'
-import { useRegistros, useFuncionarios, useConfig } from '../lib/hooks'
-import { getHoje, fmtMoeda, fmtNum, pctMeta, ultimosDias } from '../lib/utils'
+import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
+import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, ultimosDias, isProducao } from '../lib/utils'
 
 export default function Alertas() {
   const hoje = getHoje()
   const ini7 = format(subDays(new Date(), 7), 'yyyy-MM-dd')
   const { funcionarios } = useFuncionarios()
-  const { valorMil } = useConfig()
+  const { valorMil, uniDisplay, uniMaco, tolerancia } = useConfig()
   const { registros: regsHoje } = useRegistros({ data: hoje })
   const { registros: regs7 }   = useRegistros({ dataInicio: ini7, dataFim: hoje })
+  const { cqRegistros: cq7 }   = useCQ({ dataInicio: ini7, dataFim: hoje })
+
+  // Divergências da conferência (produzido − perda − empacotado, fora da tolerância)
+  const divergencias = useMemo(() => {
+    const map = new Map()
+    regs7.forEach(r => {
+      map.set(`${r.func_id}|${r.data}`, { nome: r.funcionarios?.nome, data: r.data, produzido: r.quantidade || 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false })
+    })
+    cq7.forEach(c => {
+      const k = `${c.func_id}|${c.data}`
+      if (!map.has(k)) map.set(k, { nome: c.funcionarios?.nome, data: c.data, produzido: 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false })
+      const x = map.get(k)
+      x.temCQ = true
+      x.entregue += c.entregue || 0
+      x.perda += c.perda || 0
+      x.display += c.display || 0
+      x.macos += c.macos || 0
+    })
+    return [...map.values()]
+      .filter(x => x.temCQ)
+      .map(x => {
+        const empacotado = x.display * uniDisplay + x.macos * uniMaco
+        // Base: produção declarada; se não houver, o entregue à revisão
+        const base = x.produzido > 0 ? x.produzido : x.entregue
+        const diferenca = base - x.perda - empacotado
+        return { ...x, base, empacotado, diferenca }
+      })
+      .filter(x => Math.abs(x.diferenca) > Math.round(x.base * tolerancia / 100))
+      .sort((a, b) => b.data.localeCompare(a.data))
+  }, [regs7, cq7, uniDisplay, uniMaco, tolerancia])
 
   const analise = useMemo(() => {
-    const ativos = funcionarios.filter(f => f.situacao === 'ativo')
+    const ativos = funcionarios.filter(f => f.situacao === 'ativo' && isProducao(f))
     const dias7  = ultimosDias(7)
 
     const statusHoje = ativos.map(f => {
@@ -110,6 +140,29 @@ export default function Alertas() {
             ))
           }
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 18 }}>
+        <div className="card-title">⚖️ Conferência Produção × Finalização — Últimos 7 Dias</div>
+        {divergencias.length === 0
+          ? <div className="alert a-success"><div style={{ fontSize: 17 }}>✅</div><div><strong>Tudo conferido!</strong><span>Nenhuma divergência acima de {tolerancia}% entre produção declarada e revisão da finalização.</span></div></div>
+          : divergencias.map((d, i) => (
+            <div key={i} className={`alert ${d.diferenca > 0 ? 'a-danger' : 'a-warn'}`}>
+              <div style={{ fontSize: 17 }}>{d.diferenca > 0 ? '▼' : '▲'}</div>
+              <div>
+                <strong>
+                  {d.nome} — {fmtData(d.data)}: {d.diferenca > 0
+                    ? `faltam ${fmtNum(d.diferenca)} un.`
+                    : `sobra de ${fmtNum(Math.abs(d.diferenca))} un.`}
+                </strong>
+                <span>
+                  {d.produzido > 0 ? `Produzido: ${fmtNum(d.produzido)} un.` : `Entregue à revisão: ${fmtNum(d.entregue)} un. (produção não declarada)`}
+                  {' · '}Perda: {fmtNum(d.perda)} un. · Empacotado: {fmtNum(d.empacotado)} un. ({d.display} displays + {d.macos} maços)
+                </span>
+              </div>
+            </div>
+          ))
+        }
       </div>
 
       <div className="card">

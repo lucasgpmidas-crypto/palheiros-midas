@@ -4,7 +4,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useRegistros, useFuncionarios, useConfig } from '../lib/hooks'
-import { getHoje, fmtMoeda, fmtNum, pctMeta, avatarCor, getIniciais, exportCSV } from '../lib/utils'
+import { getHoje, fmtMoeda, fmtNum, pctMeta, avatarCor, getIniciais, exportCSV, isProducao } from '../lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
@@ -18,7 +18,7 @@ export default function HistEquipe() {
   const ini  = format(subDays(new Date(), Number(periodo)), 'yyyy-MM-dd')
   const { registros, loading } = useRegistros({ dataInicio: ini, dataFim: hoje })
 
-  const ativos = funcionarios.filter(f => f.situacao === 'ativo')
+  const ativos = funcionarios.filter(f => f.situacao === 'ativo' && isProducao(f))
 
   const stats = useMemo(() => {
     const totalQty = registros.reduce((s, r) => s + r.quantidade, 0)
