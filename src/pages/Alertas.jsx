@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { subDays, format } from 'date-fns'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
-import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, ultimosDias, isProducao } from '../lib/utils'
+import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, ultimosDias, isProducao, statusConferencia } from '../lib/utils'
 
 export default function Alertas() {
   const hoje = getHoje()
@@ -16,17 +16,18 @@ export default function Alertas() {
   const divergencias = useMemo(() => {
     const map = new Map()
     regs7.forEach(r => {
-      map.set(`${r.func_id}|${r.data}`, { nome: r.funcionarios?.nome, data: r.data, produzido: r.quantidade || 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false })
+      map.set(`${r.func_id}|${r.data}`, { nome: r.funcionarios?.nome, data: r.data, produzido: r.quantidade || 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false, pendenteEmbalagem: true })
     })
     cq7.forEach(c => {
       const k = `${c.func_id}|${c.data}`
-      if (!map.has(k)) map.set(k, { nome: c.funcionarios?.nome, data: c.data, produzido: 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false })
+      if (!map.has(k)) map.set(k, { nome: c.funcionarios?.nome, data: c.data, produzido: 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false, pendenteEmbalagem: true })
       const x = map.get(k)
       x.temCQ = true
       x.entregue += c.entregue || 0
       x.perda += c.perda || 0
       x.display += c.display || 0
       x.macos += c.macos || 0
+      x.pendenteEmbalagem = x.pendenteEmbalagem && !c.registrado_por_display
     })
     return [...map.values()]
       .filter(x => x.temCQ)
@@ -35,9 +36,10 @@ export default function Alertas() {
         // Base: produção declarada; se não houver, o entregue à revisão
         const base = x.produzido > 0 ? x.produzido : x.entregue
         const diferenca = base - x.perda - empacotado
-        return { ...x, base, empacotado, diferenca }
+        const status = statusConferencia({ temCQ: x.temCQ, pendenteEmbalagem: x.pendenteEmbalagem, base, perda: x.perda, empacotado, tolerancia })
+        return { ...x, base, empacotado, diferenca, status }
       })
-      .filter(x => Math.abs(x.diferenca) > Math.round(x.base * tolerancia / 100))
+      .filter(x => x.status === 'falta' || x.status === 'sobra')
       .sort((a, b) => b.data.localeCompare(a.data))
   }, [regs7, cq7, uniDisplay, uniMaco, tolerancia])
 

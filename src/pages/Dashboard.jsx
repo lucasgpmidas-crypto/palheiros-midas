@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
-import { getHoje, fmtMoeda, fmtNum, getIniciais, avatarCor, pctMeta, corPct, getSemana, ultimosDias, getMes, isProducao } from '../lib/utils'
+import { getHoje, fmtMoeda, fmtNum, getIniciais, avatarCor, pctMeta, corPct, getSemana, ultimosDias, getMes, isProducao, statusConferencia } from '../lib/utils'
 import { format, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -31,30 +31,33 @@ export default function Dashboard() {
   const conf = useMemo(() => {
     const map = new Map()
     regsHoje.forEach(r => {
-      map.set(`${r.func_id}`, { nome: r.funcionarios?.nome, produzido: r.quantidade || 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false })
+      map.set(`${r.func_id}`, { nome: r.funcionarios?.nome, produzido: r.quantidade || 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false, pendenteEmbalagem: true })
     })
     cqHoje.forEach(c => {
       const k = `${c.func_id}`
-      if (!map.has(k)) map.set(k, { nome: c.funcionarios?.nome, produzido: 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false })
+      if (!map.has(k)) map.set(k, { nome: c.funcionarios?.nome, produzido: 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false, pendenteEmbalagem: true })
       const x = map.get(k)
       x.temCQ = true
       x.entregue += c.entregue || 0
       x.perda += c.perda || 0
       x.display += c.display || 0
       x.macos += c.macos || 0
+      x.pendenteEmbalagem = x.pendenteEmbalagem && !c.registrado_por_display
     })
     const linhas = [...map.values()].map(x => {
       const empacotado = x.display * uniDisplay + x.macos * uniMaco
       const base = x.produzido > 0 ? x.produzido : x.entregue
       const diferenca = base - x.perda - empacotado
-      return { ...x, empacotado, base, diferenca }
+      const status = statusConferencia({ temCQ: x.temCQ, pendenteEmbalagem: x.pendenteEmbalagem, base, perda: x.perda, empacotado, tolerancia })
+      return { ...x, empacotado, base, diferenca, status }
     })
     const comCQ = linhas.filter(x => x.temCQ)
-    const divergentes = comCQ.filter(x => Math.abs(x.diferenca) > Math.round(x.base * tolerancia / 100))
+    const divergentes = comCQ.filter(x => x.status === 'falta' || x.status === 'sobra')
     return {
-      ok: comCQ.length - divergentes.length,
+      ok: comCQ.length - divergentes.length - linhas.filter(x => x.status === 'aguardando_embalagem').length,
       divergentes,
       aguardando: linhas.filter(x => !x.temCQ).length,
+      aguardandoEmbalagem: linhas.filter(x => x.status === 'aguardando_embalagem').length,
     }
   }, [regsHoje, cqHoje, uniDisplay, uniMaco, tolerancia])
 
@@ -179,7 +182,7 @@ export default function Dashboard() {
           <Link to="/conferencia" className="btn btn-secondary btn-sm" style={{ textTransform: 'none', letterSpacing: 0 }}>Ver completa →</Link>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: conf.divergentes.length ? 12 : 0 }}>
-          {[['✓ Conferem', conf.ok, 'var(--green)'], ['⚠ Divergências', conf.divergentes.length, conf.divergentes.length ? 'var(--red)' : 'var(--text3)'], ['⏳ Aguardando revisão', conf.aguardando, 'var(--blue)']].map(([l, v, c]) => (
+          {[['✓ Conferem', conf.ok, 'var(--green)'], ['⚠ Divergências', conf.divergentes.length, conf.divergentes.length ? 'var(--red)' : 'var(--text3)'], ['⏳ Aguardando revisão', conf.aguardando, 'var(--blue)'], ['📦 Aguardando embalagem', conf.aguardandoEmbalagem, 'var(--blue)']].map(([l, v, c]) => (
             <div key={l} className="stats-chip"><span style={{ color: 'var(--text3)' }}>{l}: </span><strong style={{ color: c }}>{v}</strong></div>
           ))}
         </div>

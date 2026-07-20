@@ -40,6 +40,18 @@ export const sugerirEmpacote = (qtd, uniDisplay, uniMaco) => {
   return { displays, macos, avulso }
 }
 
+// Status da conferência produção × revisão/embalagem, com a mesma regra de tolerância
+// usada em Alertas, Conferência e Dashboard — evita a fórmula divergir entre as telas.
+// pendenteEmbalagem: revisão já foi lançada, mas ninguém completou a etapa de displays ainda.
+export const statusConferencia = ({ temCQ, pendenteEmbalagem, base, perda, empacotado, tolerancia }) => {
+  if (!temCQ) return 'aguardando'
+  if (pendenteEmbalagem) return 'aguardando_embalagem'
+  const diferenca = base - perda - empacotado
+  const limite = Math.round(base * tolerancia / 100)
+  if (Math.abs(diferenca) <= limite) return 'ok'
+  return diferenca > 0 ? 'falta' : 'sobra'
+}
+
 export const corPct = (p) => {
   if (p >= 100) return 'var(--green)'
   if (p >= 70) return 'var(--gold-light)'

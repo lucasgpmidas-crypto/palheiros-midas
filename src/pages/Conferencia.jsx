@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react'
 import { subDays, format } from 'date-fns'
 import { useRegistros, useCQ, useFuncionarios, useConfig } from '../lib/hooks'
-import { getHoje, fmtNum, fmtData, exportCSV, isProducao } from '../lib/utils'
+import { getHoje, fmtNum, fmtData, exportCSV, isProducao, statusConferencia } from '../lib/utils'
 
 const STATUS = {
-  ok:         { badge: 'b-green', label: '✓ Confere' },
-  falta:      { badge: 'b-red',   label: '▼ Falta' },
-  sobra:      { badge: 'b-amber', label: '▲ Sobra' },
-  aguardando: { badge: 'b-blue',  label: '⏳ Aguardando revisão' },
+  ok:                  { badge: 'b-green', label: '✓ Confere' },
+  falta:               { badge: 'b-red',   label: '▼ Falta' },
+  sobra:               { badge: 'b-amber', label: '▲ Sobra' },
+  aguardando:          { badge: 'b-blue',  label: '⏳ Aguardando revisão' },
+  aguardando_embalagem:{ badge: 'b-blue',  label: '📦 Aguardando embalagem' },
 }
 
 export default function Conferencia() {
@@ -30,18 +31,19 @@ export default function Conferencia() {
     registros.forEach(r => {
       map.set(key(r.func_id, r.data), {
         funcId: r.func_id, nome: r.funcionarios?.nome, data: r.data,
-        produzido: r.quantidade || 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false,
+        produzido: r.quantidade || 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false, pendenteEmbalagem: true,
       })
     })
     cqRegistros.forEach(c => {
       const k = key(c.func_id, c.data)
-      if (!map.has(k)) map.set(k, { funcId: c.func_id, nome: c.funcionarios?.nome, data: c.data, produzido: 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false })
+      if (!map.has(k)) map.set(k, { funcId: c.func_id, nome: c.funcionarios?.nome, data: c.data, produzido: 0, entregue: 0, perda: 0, display: 0, macos: 0, temCQ: false, pendenteEmbalagem: true })
       const x = map.get(k)
       x.temCQ = true
       x.entregue += c.entregue || 0
       x.perda    += c.perda || 0
       x.display  += c.display || 0
       x.macos    += c.macos || 0
+      x.pendenteEmbalagem = x.pendenteEmbalagem && !c.registrado_por_display
     })
 
     return [...map.values()].map(x => {
@@ -49,11 +51,7 @@ export default function Conferencia() {
       // Base do cálculo: produção declarada; se não houver, usa o entregue à revisão
       const base = x.produzido > 0 ? x.produzido : x.entregue
       const diferenca = base - x.perda - empacotado
-      const limite = Math.round(base * tolerancia / 100)
-      let status
-      if (!x.temCQ) status = 'aguardando'
-      else if (Math.abs(diferenca) <= limite) status = 'ok'
-      else status = diferenca > 0 ? 'falta' : 'sobra'
+      const status = statusConferencia({ temCQ: x.temCQ, pendenteEmbalagem: x.pendenteEmbalagem, base, perda: x.perda, empacotado, tolerancia })
       return { ...x, base, empacotado, diferenca, status, semProducao: x.temCQ && x.produzido === 0 }
     }).sort((a, b) => b.data.localeCompare(a.data) || (a.nome || '').localeCompare(b.nome || ''))
   }, [registros, cqRegistros, uniDisplay, uniMaco, tolerancia])
@@ -63,6 +61,7 @@ export default function Conferencia() {
   const nOk    = linhas.filter(l => l.status === 'ok').length
   const nDiv   = linhas.filter(l => l.status === 'falta' || l.status === 'sobra').length
   const nAg    = linhas.filter(l => l.status === 'aguardando').length
+  const nAgEmb = linhas.filter(l => l.status === 'aguardando_embalagem').length
   const totalFalta = linhas.filter(l => l.status === 'falta').reduce((s, l) => s + l.diferenca, 0)
 
   const handleExportar = () => exportCSV([
@@ -71,7 +70,7 @@ export default function Conferencia() {
   ], `conferencia_${hoje}.csv`)
 
   const difCell = (l) => {
-    if (!l.temCQ) return <span style={{ color: 'var(--text3)' }}>—</span>
+    if (!l.temCQ || l.status === 'aguardando_embalagem') return <span style={{ color: 'var(--text3)' }}>—</span>
     if (l.diferenca === 0) return <span style={{ color: 'var(--green)', fontWeight: 700 }}>0</span>
     const cor = l.status === 'ok' ? 'var(--green)' : l.diferenca > 0 ? 'var(--red)' : 'var(--amber)'
     return <span style={{ color: cor, fontWeight: 700 }}>{l.diferenca > 0 ? '−' : '+'}{fmtNum(Math.abs(l.diferenca))} un.</span>
@@ -101,6 +100,7 @@ export default function Conferencia() {
           ['sc-green', 'sv-green', 'Conferem', nOk, 'dentro da tolerância'],
           ['sc-red',   'sv-red',   'Divergências', nDiv, 'precisam de atenção'],
           ['sc-blue',  'sv-blue',  'Aguardando Revisão', nAg, 'sem registro da finalização'],
+          ['sc-blue',  'sv-blue',  'Aguardando Embalagem', nAgEmb, 'revisão feita, falta passar pro display'],
           ['sc-amber', 'sv-amber', 'Total em Falta', fmtNum(totalFalta), 'unidades não justificadas'],
         ].map(([cls, sv, label, val, sub]) => (
           <div key={label} className={`stat-card ${cls}`}>
@@ -152,9 +152,9 @@ export default function Conferencia() {
                       : '—'}
                     </td>
                     <td style={{ color: 'var(--red)' }}>{l.temCQ ? fmtNum(l.perda) + ' un.' : '—'}</td>
-                    <td>{l.temCQ ? l.display : '—'}</td>
-                    <td>{l.temCQ ? l.macos : '—'}</td>
-                    <td style={{ color: 'var(--blue)' }}>{l.temCQ ? fmtNum(l.empacotado) + ' un.' : '—'}</td>
+                    <td>{l.status === 'aguardando_embalagem' ? <span style={{ color: 'var(--text3)' }}>⏳</span> : l.temCQ ? l.display : '—'}</td>
+                    <td>{l.status === 'aguardando_embalagem' ? <span style={{ color: 'var(--text3)' }}>⏳</span> : l.temCQ ? l.macos : '—'}</td>
+                    <td style={{ color: 'var(--blue)' }}>{l.status === 'aguardando_embalagem' ? <span style={{ color: 'var(--text3)' }}>—</span> : l.temCQ ? fmtNum(l.empacotado) + ' un.' : '—'}</td>
                     <td>{difCell(l)}</td>
                     <td><span className={`badge ${STATUS[l.status].badge}`}>{STATUS[l.status].label}</span></td>
                   </tr>
