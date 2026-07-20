@@ -14,7 +14,6 @@ import HistIndividual from './pages/HistIndividual'
 import HistEquipe from './pages/HistEquipe'
 import MinhaProducao from './pages/MinhaProducao'
 import Configuracoes from './pages/Configuracoes'
-import Presidio from './pages/Presidio'
 import Conferencia from './pages/Conferencia'
 
 // Página inicial do funcionário conforme o setor
@@ -55,7 +54,6 @@ function AppRoutes() {
         <Route path="conferencia"   element={<ProtectedRoute adminOnly><Conferencia /></ProtectedRoute>} />
         <Route path="relatorios"    element={<ProtectedRoute adminOnly><Relatorios /></ProtectedRoute>} />
         <Route path="configuracoes" element={<ProtectedRoute adminOnly><Configuracoes /></ProtectedRoute>} />
-        <Route path="presidio"      element={<ProtectedRoute adminOnly><Presidio /></ProtectedRoute>} />
 
         {/* Revisão & Empacotamento (admin + setor finalização) */}
         <Route path="cq" element={<ProtectedRoute><RevisaoRoute><ControleCQ /></RevisaoRoute></ProtectedRoute>} />

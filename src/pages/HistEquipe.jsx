@@ -126,7 +126,7 @@ export default function HistEquipe() {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontFamily: 'Barlow Condensed,sans-serif', fontSize: 18, fontWeight: 800, color: 'var(--gold-light)' }}>{fmtNum(x.tot)}</div>
-                  <div style={{ fontSize: 11, color: 'var(--green)' }}>{fmtMoeda(x.val)}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>un.</div>
                 </div>
               </div>
             ))
