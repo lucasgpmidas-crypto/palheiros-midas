@@ -83,17 +83,6 @@ export default function ControleCQ() {
 
   const badgeTipo = (t) => ({ Original: 'b-blue', Menta: 'b-green', Ouro: 'b-gold', Outro: 'b-amber' }[t] || 'b-amber')
 
-  // Ranking por funcionário
-  const ativos2 = funcionarios.filter(f => f.situacao === 'ativo' && isProducao(f))
-  const rankData = ativos2.map(f => {
-    const fr = cqRegistros.filter(r => r.func_id === f.id)
-    if (!fr.length) return null
-    const ent = fr.reduce((s, r) => s + r.entregue, 0)
-    const rev = fr.reduce((s, r) => s + r.revisada, 0)
-    const taxa = ent > 0 ? Math.round(rev / ent * 100) : 0
-    return { f, ent, rev, perd: ent - rev, taxa, n: fr.length }
-  }).filter(Boolean).sort((a, b) => b.taxa - a.taxa)
-
   // Por tipo
   const porTipo = TIPOS.map(t => {
     const tr = cqRegistros.filter(r => r.tipo === t)
@@ -104,7 +93,6 @@ export default function ControleCQ() {
     return { t, ent, rev, perd: ent - rev, taxa, n: tr.length }
   }).filter(Boolean)
 
-  const MEDALS = ['🥇', '🥈', '🥉']
   const taxaCor = (t) => t >= 90 ? 'var(--green)' : t >= 70 ? 'var(--gold-light)' : 'var(--red)'
 
   return (
@@ -228,47 +216,24 @@ export default function ControleCQ() {
       </div>
 
       {/* Análise */}
-      <div className="g2">
-        <div className="card">
-          <div className="card-title">🏆 Ranking de Aproveitamento</div>
-          {rankData.length === 0
-            ? <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Sem dados no período</div></div>
-            : rankData.map((x, i) => (
-              <div className="rank-row" key={x.f.id}>
-                <div className={`rank-num ${i < 3 ? 'rn-' + (i + 1) : ''}`}>{MEDALS[i] || i + 1}</div>
-                <div className="rank-av" style={{ background: 'var(--bg4)' }}>{x.f.nome.split(' ').slice(0, 2).map(c => c[0]).join('')}</div>
-                <div className="rank-info">
-                  <div className="rank-name">{x.f.nome}</div>
-                  <div className="pbar"><div className={`pfill ${x.taxa >= 90 ? 'pf-green' : x.taxa >= 70 ? 'pf-gold' : 'pf-red'}`} style={{ width: `${x.taxa}%` }} /></div>
-                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{fmtNum(x.rev)} revisadas · {fmtNum(x.perd)} perdas</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: 'Barlow Condensed,sans-serif', fontSize: 20, fontWeight: 800, color: taxaCor(x.taxa) }}>{x.taxa}%</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{x.n} registros</div>
-                </div>
-              </div>
-            ))
-          }
-        </div>
-        <div className="card">
-          <div className="card-title">📊 Aproveitamento por Tipo</div>
-          {porTipo.length === 0
-            ? <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Sem dados por tipo</div></div>
-            : <div className="table-wrap"><table>
-                <thead><tr><th>Tipo</th><th>Entregue</th><th>Revisado</th><th>Perda</th><th>Aproveit.</th><th>Regs</th></tr></thead>
-                <tbody>{porTipo.map(x => (
-                  <tr key={x.t}>
-                    <td><span className={`badge ${badgeTipo(x.t)}`}>{x.t}</span></td>
-                    <td>{fmtNum(x.ent)} un.</td>
-                    <td style={{ color: 'var(--green)' }}>{fmtNum(x.rev)} un.</td>
-                    <td style={{ color: 'var(--red)' }}>{fmtNum(x.perd)} un.</td>
-                    <td><span style={{ fontWeight: 700, color: taxaCor(x.taxa) }}>{x.taxa}%</span></td>
-                    <td>{x.n}</td>
-                  </tr>
-                ))}</tbody>
-              </table></div>
-          }
-        </div>
+      <div className="card">
+        <div className="card-title">📊 Aproveitamento por Tipo</div>
+        {porTipo.length === 0
+          ? <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Sem dados por tipo</div></div>
+          : <div className="table-wrap"><table>
+              <thead><tr><th>Tipo</th><th>Entregue</th><th>Revisado</th><th>Perda</th><th>Aproveit.</th><th>Regs</th></tr></thead>
+              <tbody>{porTipo.map(x => (
+                <tr key={x.t}>
+                  <td><span className={`badge ${badgeTipo(x.t)}`}>{x.t}</span></td>
+                  <td>{fmtNum(x.ent)} un.</td>
+                  <td style={{ color: 'var(--green)' }}>{fmtNum(x.rev)} un.</td>
+                  <td style={{ color: 'var(--red)' }}>{fmtNum(x.perd)} un.</td>
+                  <td><span style={{ fontWeight: 700, color: taxaCor(x.taxa) }}>{x.taxa}%</span></td>
+                  <td>{x.n}</td>
+                </tr>
+              ))}</tbody>
+            </table></div>
+        }
       </div>
 
       {/* Modal Editar */}

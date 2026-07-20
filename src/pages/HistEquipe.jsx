@@ -3,7 +3,7 @@ import { Line } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend } from 'chart.js'
 import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { useRegistros, useFuncionarios, useConfig } from '../lib/hooks'
+import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
 import { getHoje, fmtMoeda, fmtNum, pctMeta, avatarCor, getIniciais, exportCSV, isProducao } from '../lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
@@ -17,6 +17,7 @@ export default function HistEquipe() {
   const hoje = getHoje()
   const ini  = format(subDays(new Date(), Number(periodo)), 'yyyy-MM-dd')
   const { registros, loading } = useRegistros({ dataInicio: ini, dataFim: hoje })
+  const { cqRegistros } = useCQ({ dataInicio: ini, dataFim: hoje })
 
   const ativos = funcionarios.filter(f => f.situacao === 'ativo' && isProducao(f))
 
@@ -25,6 +26,12 @@ export default function HistEquipe() {
     const totalVal = registros.reduce((s, r) => s + Number(r.valor || 0), 0)
     const diasUnicos = [...new Set(registros.map(r => r.data))].length
     const mediaEquipe = diasUnicos > 0 && ativos.length > 0 ? Math.round(totalQty / (diasUnicos * ativos.length)) : 0
+
+    // Perda real vem da revisão da finalização (controle_qualidade), não do
+    // campo "aproveitado" de registros_producao — que ninguém preenche nesse fluxo.
+    const perdaPorFunc = new Map()
+    cqRegistros.forEach(c => perdaPorFunc.set(c.func_id, (perdaPorFunc.get(c.func_id) || 0) + (c.perda || 0)))
+    const totalPerd = [...perdaPorFunc.values()].reduce((s, p) => s + p, 0)
 
     const allDays = Array.from({ length: Number(periodo) }, (_, i) =>
       format(subDays(new Date(), Number(periodo) - 1 - i), 'yyyy-MM-dd')
@@ -46,15 +53,16 @@ export default function HistEquipe() {
       const media = dias > 0 ? Math.round(tot / dias) : 0
       const pct   = pctMeta(media, f.meta_diaria)
       const diasMeta = fr.filter(r => r.quantidade >= f.meta_diaria).length
-      return { f, tot, val, dias, media, pct, diasMeta }
+      const perda = perdaPorFunc.get(f.id) || 0
+      return { f, tot, val, dias, media, pct, diasMeta, perda }
     }).sort((a, b) => b.tot - a.tot)
 
-    return { totalQty, totalVal, diasUnicos, mediaEquipe, chartLabels, datasets, porFunc }
-  }, [registros, ativos, periodo, valorMil])
+    return { totalQty, totalVal, totalPerd, diasUnicos, mediaEquipe, chartLabels, datasets, porFunc }
+  }, [registros, cqRegistros, ativos, periodo, valorMil])
 
   const exportar = () => exportCSV(
-    [['Funcionário', 'Total', 'Valor', 'Dias', 'Média/Dia', 'Eficiência', 'Dias na Meta'],
-     ...stats.porFunc.map(({ f, tot, val, dias, media, pct, diasMeta }) => [f.nome, tot, `R$${val.toFixed(2)}`, dias, media, pct + '%', diasMeta + '/' + dias])],
+    [['Funcionário', 'Total', 'Valor', 'Dias', 'Média/Dia', 'Eficiência', 'Dias na Meta', 'Perda (revisão)'],
+     ...stats.porFunc.map(({ f, tot, val, dias, media, pct, diasMeta, perda }) => [f.nome, tot, `R$${val.toFixed(2)}`, dias, media, pct + '%', diasMeta + '/' + dias, perda])],
     `equipe_${periodo}d.csv`
   )
 
@@ -81,6 +89,7 @@ export default function HistEquipe() {
           { cls:'sc-green', sv:'sv-green', label:'Valor Total',         val:fmtMoeda(stats.totalVal), small:true },
           { cls:'sc-blue',  sv:'sv-blue',  label:'Média/Dia/Operador',  val:fmtNum(stats.mediaEquipe)+' un.' },
           { cls:'sc-amber', sv:'sv-amber', label:'Dias Registrados',    val:stats.diasUnicos+' de '+periodo },
+          { cls:'sc-red',   sv:'sv-red',   label:'Perda Equipe (revisão)', val:fmtNum(stats.totalPerd)+' un.' },
         ].map(x => (
           <div key={x.label} className={`stat-card ${x.cls}`}>
             <div className="stat-label">{x.label}</div>
@@ -131,7 +140,7 @@ export default function HistEquipe() {
           : stats.porFunc.length === 0
             ? <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Sem dados no período</div></div>
             : <div className="table-wrap"><table>
-                <thead><tr><th>#</th><th>Funcionário</th><th>Total</th><th>Valor</th><th>Dias</th><th>Média/Dia</th><th>Dias na Meta</th><th>Eficiência</th></tr></thead>
+                <thead><tr><th>#</th><th>Funcionário</th><th>Total</th><th>Valor</th><th>Dias</th><th>Média/Dia</th><th>Dias na Meta</th><th>Eficiência</th><th>Perda (revisão)</th></tr></thead>
                 <tbody>{stats.porFunc.map((x, i) => (
                   <tr key={x.f.id}>
                     <td style={{ fontFamily: 'Barlow Condensed,sans-serif', fontSize: 16, fontWeight: 800, color: 'var(--text3)' }}>{MEDALS[i] || i + 1}</td>
@@ -147,6 +156,7 @@ export default function HistEquipe() {
                     <td>{fmtNum(x.media)} un.</td>
                     <td>{x.diasMeta}/{x.dias}</td>
                     <td><span style={{ color: taxaCor(x.pct), fontWeight: 700 }}>{x.pct}%</span></td>
+                    <td style={{ color: x.perda > 0 ? 'var(--red)' : 'var(--text3)' }}>{fmtNum(x.perda)} un.</td>
                   </tr>
                 ))}</tbody>
               </table></div>

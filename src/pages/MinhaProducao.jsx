@@ -3,9 +3,9 @@ import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, LineElement, PointElement } from 'chart.js'
 import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { useRegistros, useFuncionarios, useConfig } from '../lib/hooks'
+import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
-import { getHoje, fmtMoeda, fmtNum, pctMeta, corPct, avatarCor, getIniciais, ultimosDias, calcValor } from '../lib/utils'
+import { getHoje, fmtMoeda, fmtNum, pctMeta, corPct, avatarCor, getIniciais, ultimosDias, calcValor, statusConferencia } from '../lib/utils'
 import toast from 'react-hot-toast'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, LineElement, PointElement)
@@ -14,12 +14,13 @@ export default function MinhaProducao() {
   const { funcSession, isFinalizacao } = useAuth()
   const funcId = funcSession?.id
   const { funcionarios } = useFuncionarios()
-  const { valorMil } = useConfig()
+  const { valorMil, uniDisplay, uniMaco, tolerancia } = useConfig()
   const hoje = getHoje()
   const ini30 = format(subDays(new Date(), 30), 'yyyy-MM-dd')
 
   const { registros: regsHoje, registrar }        = useRegistros({ data: hoje })
   const { registros: meusRegs, refetch: refetchMeus } = useRegistros({ funcId, dataInicio: ini30, dataFim: hoje })
+  const { cqRegistros: meusCQ } = useCQ({ funcId, dataInicio: ini30, dataFim: hoje })
 
   const [qtd, setQtd] = useState('')
   const [obs, setObs] = useState('')
@@ -43,6 +44,33 @@ export default function MinhaProducao() {
   const valor30  = meusRegs.reduce((s, r) => s + Number(r.valor || 0), 0)
   const media30  = meusRegs.length ? Math.round(total30 / meusRegs.length) : 0
   const diasMeta = f ? meusRegs.filter(r => r.quantidade >= f.meta_diaria).length : 0
+
+  // Revisão/embalagem da finalização, por dia — perda e diferença entre o que eu declarei e o que foi empacotado
+  const confPorDia = useMemo(() => {
+    const map = new Map()
+    meusCQ.forEach(c => {
+      const cur = map.get(c.data) || { perda: 0, entregue: 0, display: 0, macos: 0, temCQ: false, pendenteEmbalagem: true }
+      cur.temCQ = true
+      cur.entregue += c.entregue || 0
+      cur.perda += c.perda || 0
+      cur.display += c.display || 0
+      cur.macos += c.macos || 0
+      cur.pendenteEmbalagem = cur.pendenteEmbalagem && !c.registrado_por_display
+      map.set(c.data, cur)
+    })
+    return map
+  }, [meusCQ])
+
+  const confLinha = (r) => {
+    const c = confPorDia.get(r.data)
+    if (!c) return { temCQ: false, status: 'aguardando' }
+    const empacotado = c.display * uniDisplay + c.macos * uniMaco
+    const diferenca = r.quantidade - c.perda - empacotado
+    const status = statusConferencia({ temCQ: true, pendenteEmbalagem: c.pendenteEmbalagem, base: r.quantidade, perda: c.perda, empacotado, tolerancia })
+    return { temCQ: true, perda: c.perda, empacotado, diferenca, status }
+  }
+
+  const perda30 = [...confPorDia.values()].reduce((s, c) => s + c.perda, 0)
 
   const chartData = useMemo(() => {
     const dias14 = ultimosDias(14)
@@ -152,6 +180,11 @@ export default function MinhaProducao() {
           <div className="stat-value sv-amber">{diasMeta}/{meusRegs.length}</div>
           <div className="stat-sub">nos últimos 30 dias</div>
         </div>
+        <div className="stat-card sc-red">
+          <div className="stat-label">Perda 30 Dias</div>
+          <div className="stat-value sv-red">{fmtNum(perda30)}</div>
+          <div className="stat-sub">un. na revisão da finalização</div>
+        </div>
       </div>
 
       <div className="g2">
@@ -206,9 +239,10 @@ export default function MinhaProducao() {
                   />
                 </div>
                 <div className="table-wrap"><table>
-                  <thead><tr><th>Data</th><th>Dia</th><th>Produção</th><th>Valor</th><th>Meta</th></tr></thead>
+                  <thead><tr><th>Data</th><th>Dia</th><th>Produção</th><th>Valor</th><th>Meta</th><th>Perda</th><th>Diferença</th></tr></thead>
                   <tbody>{meusRegs.slice(0, 10).map(r => {
                     const pct = f ? pctMeta(r.quantidade, f.meta_diaria) : 0
+                    const c = confLinha(r)
                     return (
                       <tr key={r.id}>
                         <td>{new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</td>
@@ -216,6 +250,11 @@ export default function MinhaProducao() {
                         <td><strong style={{ color: 'var(--text)' }}>{fmtNum(r.quantidade)} un.</strong></td>
                         <td style={{ color: 'var(--green)' }}>{fmtMoeda(Number(r.valor))}</td>
                         <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
+                        <td style={{ color: c.temCQ ? 'var(--red)' : 'var(--text3)' }}>{c.temCQ ? fmtNum(c.perda) + ' un.' : '—'}</td>
+                        <td>{c.status === 'aguardando' ? <span style={{ color: 'var(--text3)' }}>⏳ aguardando revisão</span>
+                          : c.status === 'aguardando_embalagem' ? <span style={{ color: 'var(--text3)' }}>📦 aguardando embalagem</span>
+                          : <span style={{ color: c.status === 'ok' ? 'var(--green)' : c.diferenca > 0 ? 'var(--red)' : 'var(--amber)', fontWeight: 700 }}>{c.diferenca === 0 ? '0' : (c.diferenca > 0 ? '−' : '+') + fmtNum(Math.abs(c.diferenca)) + ' un.'}</span>}
+                        </td>
                       </tr>
                     )
                   })}</tbody>
