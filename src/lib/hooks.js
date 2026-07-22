@@ -145,7 +145,28 @@ export function useCQ(filtros = {}) {
     return true
   }
 
-  return { cqRegistros: data, loading, refetch: fetch, registrar, atualizar, excluir }
+  // Enrolador contesta a revisão de um dia (marca todos os registros CQ dele naquela data)
+  const contestar = async (funcId, dataDia, motivo) => {
+    const { error } = await supabase
+      .from('controle_qualidade')
+      .update({ contestacao: motivo, contestada_em: new Date().toISOString(), contestacao_status: 'aberta' })
+      .eq('func_id', funcId)
+      .eq('data', dataDia)
+    if (error) { toast.error('Erro ao enviar contestação'); return false }
+    toast.success('⚑ Contestação enviada ao administrador!')
+    await fetch()
+    return true
+  }
+
+  const resolverContestacao = async (id) => {
+    const { error } = await supabase.from('controle_qualidade').update({ contestacao_status: 'resolvida' }).eq('id', id)
+    if (error) { toast.error('Erro ao resolver contestação'); return false }
+    toast.success('Contestação resolvida')
+    await fetch()
+    return true
+  }
+
+  return { cqRegistros: data, loading, refetch: fetch, registrar, atualizar, excluir, contestar, resolverContestacao }
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
 import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, ultimosDias, calcValor, statusConferencia, getQuinzenaAtual } from '../lib/utils'
+import Modal from '../components/Modal'
 import toast from 'react-hot-toast'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, LineElement, PointElement)
@@ -20,11 +21,14 @@ export default function MinhaProducao() {
 
   const { registros: regsHoje, registrar }        = useRegistros({ data: hoje })
   const { registros: meusRegs, refetch: refetchMeus } = useRegistros({ funcId, dataInicio: ini30, dataFim: hoje })
-  const { cqRegistros: meusCQ } = useCQ({ funcId, dataInicio: ini30, dataFim: hoje })
+  const { cqRegistros: meusCQ, contestar } = useCQ({ funcId, dataInicio: ini30, dataFim: hoje })
 
   const [qtd, setQtd] = useState('')
   const [obs, setObs] = useState('')
   const [saving, setSaving] = useState(false)
+  const [contestando, setContestando] = useState(null)
+  const [motivoCont, setMotivoCont] = useState('')
+  const [enviandoCont, setEnviandoCont] = useState(false)
 
   const f = funcionarios.find(x => x.id === funcId)
   const meuHoje = regsHoje.find(r => r.func_id === funcId)
@@ -55,13 +59,15 @@ export default function MinhaProducao() {
   const confPorDia = useMemo(() => {
     const map = new Map()
     meusCQ.forEach(c => {
-      const cur = map.get(c.data) || { perda: 0, entregue: 0, display: 0, macos: 0, temCQ: false, pendenteEmbalagem: true }
+      const cur = map.get(c.data) || { perda: 0, entregue: 0, display: 0, macos: 0, temCQ: false, pendenteEmbalagem: true, contestacao: null, contestacaoStatus: null }
       cur.temCQ = true
       cur.entregue += c.entregue || 0
       cur.perda += c.perda || 0
       cur.display += c.display || 0
       cur.macos += c.macos || 0
       cur.pendenteEmbalagem = cur.pendenteEmbalagem && !c.registrado_por_display
+      cur.contestacao = cur.contestacao || c.contestacao || null
+      cur.contestacaoStatus = cur.contestacaoStatus || c.contestacao_status || null
       map.set(c.data, cur)
     })
     return map
@@ -73,7 +79,15 @@ export default function MinhaProducao() {
     const empacotado = c.display * uniDisplay + c.macos * uniMaco
     const diferenca = r.quantidade - c.perda - empacotado
     const status = statusConferencia({ temCQ: true, pendenteEmbalagem: c.pendenteEmbalagem, base: r.quantidade, perda: c.perda, empacotado, tolerancia })
-    return { temCQ: true, perda: c.perda, empacotado, diferenca, status }
+    return { temCQ: true, perda: c.perda, empacotado, diferenca, status, contestacao: c.contestacao, contestacaoStatus: c.contestacaoStatus }
+  }
+
+  const handleContestar = async () => {
+    if (!motivoCont.trim()) { toast.error('Explique o motivo da contestação'); return }
+    setEnviandoCont(true)
+    const ok = await contestar(funcId, contestando.data, motivoCont.trim())
+    if (ok) { setContestando(null); setMotivoCont('') }
+    setEnviandoCont(false)
   }
 
   const perda30 = [...confPorDia.values()].reduce((s, c) => s + c.perda, 0)
@@ -250,7 +264,7 @@ export default function MinhaProducao() {
                   />
                 </div>
                 <div className="table-wrap"><table>
-                  <thead><tr><th>Data</th><th>Dia</th><th>Produção</th><th>Valor</th><th>Meta</th><th>Perda</th><th>Diferença</th></tr></thead>
+                  <thead><tr><th>Data</th><th>Dia</th><th>Produção</th><th>Valor</th><th>Meta</th><th>Perda</th><th>Diferença</th><th>Revisão</th></tr></thead>
                   <tbody>{meusRegs.slice(0, 10).map(r => {
                     const pct = f ? pctMeta(r.quantidade, f.meta_diaria) : 0
                     const c = confLinha(r)
@@ -266,6 +280,11 @@ export default function MinhaProducao() {
                           : c.status === 'aguardando_embalagem' ? <span style={{ color: 'var(--text3)' }}>📦 aguardando embalagem</span>
                           : <span style={{ color: c.status === 'ok' ? 'var(--green)' : c.diferenca > 0 ? 'var(--red)' : 'var(--amber)', fontWeight: 700 }}>{c.diferenca === 0 ? '0' : (c.diferenca > 0 ? '−' : '+') + fmtNum(Math.abs(c.diferenca)) + ' un.'}</span>}
                         </td>
+                        <td>{!c.temCQ ? <span style={{ color: 'var(--text3)' }}>—</span>
+                          : c.contestacao
+                            ? <span style={{ color: c.contestacaoStatus === 'resolvida' ? 'var(--green)' : 'var(--amber)', fontSize: 12, fontWeight: 600 }} title={c.contestacao}>{c.contestacaoStatus === 'resolvida' ? '✓ resolvida' : '⚑ contestada'}</span>
+                            : <button className="btn btn-secondary btn-xs" title="Discorda da contagem ou da perda? Envie uma contestação ao administrador" onClick={() => setContestando({ data: r.data, perda: c.perda, diferenca: c.diferenca })}>⚑ Contestar</button>}
+                        </td>
                       </tr>
                     )
                   })}</tbody>
@@ -275,6 +294,26 @@ export default function MinhaProducao() {
           }
         </div>
       </div>
+
+      {/* Modal Contestar Revisão */}
+      {contestando && (
+        <Modal title="⚑ Contestar Revisão" onClose={() => { setContestando(null); setMotivoCont('') }} width={460}>
+          <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 10 }}>
+            Dia {fmtData(contestando.data)} · Perda registrada: <strong style={{ color: 'var(--red)' }}>{fmtNum(contestando.perda || 0)} un.</strong>
+          </div>
+          <div className="fg">
+            <label>Motivo da contestação *</label>
+            <textarea rows={3} value={motivoCont} placeholder="Ex: entreguei 3.000 unidades contadas, a perda registrada não bate..." onChange={e => setMotivoCont(e.target.value)} />
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--text3)', marginBottom: 12 }}>
+            ℹ️ Sua contestação vai aparecer para o administrador no Controle de Qualidade.
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn btn-primary" onClick={handleContestar} disabled={enviandoCont}>{enviandoCont ? '...' : 'Enviar Contestação'}</button>
+            <button className="btn btn-secondary" onClick={() => { setContestando(null); setMotivoCont('') }}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

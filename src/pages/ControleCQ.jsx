@@ -27,7 +27,7 @@ export default function ControleCQ() {
 
   const { funcionarios } = useFuncionarios()
   const { uniDisplay, uniMaco } = useConfig()
-  const { cqRegistros, loading, registrar, atualizar, excluir } = useCQ({ funcId: aplicados.funcId || undefined, dataInicio: aplicados.dataInicio, dataFim: aplicados.dataFim, tipo: aplicados.tipo || undefined })
+  const { cqRegistros, loading, registrar, atualizar, excluir, resolverContestacao } = useCQ({ funcId: aplicados.funcId || undefined, dataInicio: aplicados.dataInicio, dataFim: aplicados.dataFim, tipo: aplicados.tipo || undefined })
   // Produção declarada pelo funcionário na data selecionada no formulário
   const { registros: regsDia } = useRegistros({ data: form.data })
   const prodDeclarada = form.funcId ? (regsDia.find(r => r.func_id === Number(form.funcId))?.quantidade || 0) : null
@@ -74,12 +74,13 @@ export default function ControleCQ() {
     setSalvandoEmb(false)
   }
 
+  const contestacoesAbertas = cqRegistros.filter(r => r.contestacao_status === 'aberta').length
   const totEnt  = cqRegistros.reduce((s, r) => s + (r.entregue || 0), 0)
   const totRev  = cqRegistros.reduce((s, r) => s + (r.revisada || 0), 0)
   const totPerd = cqRegistros.reduce((s, r) => s + (r.perda || 0), 0)
   const taxaGeral = totEnt > 0 ? Math.round(totRev / totEnt * 100) : 0
 
-  const handleExportar = () => exportCSV([['Data','Funcionário','OS','Tipo','Entregue','Revisado','Display','Maços','Perda','% Aprov.','% Perda','Revisão por','Embalagem por','Obs.'],...cqRegistros.map(r=>[fmtData(r.data),r.funcionarios?.nome,r.os||'',r.tipo,r.entregue,r.revisada,r.display ?? '',r.macos ?? '',r.perda,r.taxa+'%',r.entregue>0?Math.round(r.perda/r.entregue*100)+'%':'0%',r.registrado_por_revisao||'',r.registrado_por_display||'(pendente)',r.obs||''])], `cq_${hoje}.csv`)
+  const handleExportar = () => exportCSV([['Data','Funcionário','OS','Tipo','Entregue','Revisado','Display','Maços','Perda','% Aprov.','% Perda','Revisão por','Embalagem por','Contestação','Obs.'],...cqRegistros.map(r=>[fmtData(r.data),r.funcionarios?.nome,r.os||'',r.tipo,r.entregue,r.revisada,r.display ?? '',r.macos ?? '',r.perda,r.taxa+'%',r.entregue>0?Math.round(r.perda/r.entregue*100)+'%':'0%',r.registrado_por_revisao||'',r.registrado_por_display||'(pendente)',r.contestacao?(r.contestacao_status==='resolvida'?'[resolvida] ':'[aberta] ')+r.contestacao:'',r.obs||''])], `cq_${hoje}.csv`)
 
   const badgeTipo = (t) => ({ Original: 'b-blue', Menta: 'b-green', Ouro: 'b-gold', Outro: 'b-amber' }[t] || 'b-amber')
 
@@ -169,7 +170,7 @@ export default function ControleCQ() {
 
         {/* Totais */}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
-          {[['Total Entregue', fmtNum(totEnt) + ' un.', 'var(--text)'], ['Total Revisado', fmtNum(totRev) + ' un.', 'var(--green)'], ['Total Perda', fmtNum(totPerd) + ' un.', 'var(--red)'], ['Taxa Geral', taxaGeral + '%', taxaCor(taxaGeral)], ['Registros', cqRegistros.length, 'var(--text)']].map(([l, v, c]) => (
+          {[['Total Entregue', fmtNum(totEnt) + ' un.', 'var(--text)'], ['Total Revisado', fmtNum(totRev) + ' un.', 'var(--green)'], ['Total Perda', fmtNum(totPerd) + ' un.', 'var(--red)'], ['Taxa Geral', taxaGeral + '%', taxaCor(taxaGeral)], ['Registros', cqRegistros.length, 'var(--text)'], ...(contestacoesAbertas > 0 ? [['⚑ Contestações abertas', contestacoesAbertas, 'var(--amber)']] : [])].map(([l, v, c]) => (
             <div key={l} className="stats-chip"><span style={{ color: 'var(--text3)' }}>{l}: </span><strong style={{ color: c }}>{v}</strong></div>
           ))}
         </div>
@@ -182,7 +183,7 @@ export default function ControleCQ() {
           : cqRegistros.length === 0
             ? <div className="empty-state"><div className="es-icon">📦</div><div className="es-text">Nenhum registro de revisão no período</div></div>
             : <div className="table-wrap"><table>
-                <thead><tr><th>Data</th><th>Funcionário</th><th>OS</th><th>Tipo</th><th>Entregue</th><th>Revisado</th><th>Perda</th><th>% Aprov.</th><th>% Perda</th><th>Revisão por</th><th>Embalagem</th><th>Obs.</th><th>Ações</th></tr></thead>
+                <thead><tr><th>Data</th><th>Funcionário</th><th>OS</th><th>Tipo</th><th>Entregue</th><th>Revisado</th><th>Perda</th><th>% Aprov.</th><th>% Perda</th><th>Revisão por</th><th>Embalagem</th><th>Contestação</th><th>Obs.</th><th>Ações</th></tr></thead>
                 <tbody>{cqRegistros.map(r => {
                   const ptaxa = r.entregue > 0 ? Math.round(r.perda / r.entregue * 100) : 0
                   const pendente = !r.registrado_por_display
@@ -201,6 +202,17 @@ export default function ControleCQ() {
                       <td>{pendente
                         ? <button className="btn btn-secondary btn-xs" onClick={() => { setEmbalando(r); setEmb(EMB0) }}>🏷 Registrar embalagem</button>
                         : <span style={{ color: 'var(--text3)' }}>{r.display} disp. + {r.macos} maços <span style={{ fontSize: 11, opacity: 0.75 }}>— {r.registrado_por_display}</span></span>}
+                      </td>
+                      <td>{!r.contestacao ? <span style={{ color: 'var(--text3)' }}>—</span>
+                        : <div style={{ maxWidth: 180 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: r.contestacao_status === 'resolvida' ? 'var(--green)' : 'var(--amber)' }}>
+                              {r.contestacao_status === 'resolvida' ? '✓ Resolvida' : '⚑ Aberta'}
+                              {r.contestacao_status === 'aberta' && isAdmin && (
+                                <button className="btn btn-secondary btn-xs" style={{ marginLeft: 6 }} title="Marcar como resolvida" onClick={() => resolverContestacao(r.id)}>✓ Resolver</button>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 11.5, color: 'var(--text3)', whiteSpace: 'normal' }} title={r.contestacao}>{r.contestacao}</div>
+                          </div>}
                       </td>
                       <td style={{ color: 'var(--text3)' }}>{r.obs || '—'}</td>
                       <td><div style={{ display: 'flex', gap: 5 }}>
