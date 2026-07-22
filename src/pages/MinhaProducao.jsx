@@ -119,6 +119,12 @@ export default function MinhaProducao() {
 
   const perda30 = [...confPorDia.values()].reduce((s, c) => s + c.perda, 0)
 
+  // Quanto da quinzena já passou pela conferência (valor confirmado) vs aguarda
+  const valorQzConfirmado = regsQz
+    .filter(r => confPorDia.get(r.data)?.temCQ)
+    .reduce((s, r) => s + Number(r.valor || 0), 0)
+  const qzTudoConfirmado = valorQzConfirmado >= valorQz
+
   const chartData = useMemo(() => {
     const dias14 = ultimosDias(14)
     const labels = dias14.map(d => format(new Date(d + 'T12:00'), 'dd/MM', { locale: ptBR }))
@@ -231,7 +237,12 @@ export default function MinhaProducao() {
         <div className="stat-card sc-green">
           <div className="stat-label">💵 Quinzena Atual</div>
           <div className="stat-value sv-green" style={{ fontSize: 22 }}>{fmtMoeda(valorQz)}</div>
-          <div className="stat-sub">{fmtNum(totalQz)} un. · {fmtData(qz.inicio, 'dd/MM')} a {fmtData(qz.fim, 'dd/MM')} · conforme conferência</div>
+          <div className="stat-sub">{fmtNum(totalQz)} un. · {fmtData(qz.inicio, 'dd/MM')} a {fmtData(qz.fim, 'dd/MM')}</div>
+          <div className="stat-sub" style={{ marginTop: 2 }}>
+            {valorQz === 0 ? 'sem produção ainda'
+              : qzTudoConfirmado ? '✔ tudo confirmado pela conferência'
+              : <>✔ {fmtMoeda(valorQzConfirmado)} confirmados · ⏳ o resto aguarda conferência</>}
+          </div>
         </div>
         <div className="stat-card sc-gold">
           <div className="stat-label">Posição Hoje</div>
@@ -256,7 +267,7 @@ export default function MinhaProducao() {
         <div className="stat-card sc-red">
           <div className="stat-label">Perda 30 Dias</div>
           <div className="stat-value sv-red">{fmtNum(perda30)}</div>
-          <div className="stat-sub">un. na revisão da finalização</div>
+          <div className="stat-sub">descarte na conferência · não desconta do seu pagamento</div>
         </div>
       </div>
 
@@ -312,7 +323,7 @@ export default function MinhaProducao() {
                   />
                 </div>
                 <div className="table-wrap"><table>
-                  <thead><tr><th>Data</th><th>Dia</th><th>Produção</th><th>Valor</th><th>Meta</th><th>Perda</th><th>Diferença</th><th>Revisão</th></tr></thead>
+                  <thead><tr><th>Data</th><th>Dia</th><th>Produção</th><th>Valor</th><th>Meta</th><th>Perda</th><th>Diferença</th><th>Contestação</th></tr></thead>
                   <tbody>{meusRegs.slice(0, 10).map(r => {
                     const pct = f ? pctMeta(r.quantidade, f.meta_diaria) : 0
                     const c = confLinha(r)
@@ -321,10 +332,15 @@ export default function MinhaProducao() {
                         <td>{new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</td>
                         <td style={{ color: 'var(--text3)' }}>{new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short' })}</td>
                         <td><strong style={{ color: 'var(--text)' }}>{fmtNum(r.quantidade)} un.</strong></td>
-                        <td style={{ color: 'var(--green)' }}>{fmtMoeda(Number(r.valor))}</td>
+                        <td style={{ color: 'var(--green)' }}>
+                          {fmtMoeda(Number(r.valor))}{' '}
+                          {c.temCQ
+                            ? <span title="Valor confirmado pela conferência" style={{ fontSize: 11 }}>✔</span>
+                            : <span title="Valor provisório — pode mudar quando a conferência for feita" style={{ fontSize: 11, color: 'var(--text3)' }}>⏳</span>}
+                        </td>
                         <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
                         <td style={{ color: c.temCQ ? 'var(--red)' : 'var(--text3)' }}>{c.temCQ ? fmtNum(c.perda) + ' un.' : '—'}</td>
-                        <td>{c.status === 'aguardando' ? <span style={{ color: 'var(--text3)' }}>⏳ aguardando revisão</span>
+                        <td>{c.status === 'aguardando' ? <span style={{ color: 'var(--text3)' }}>⏳ aguardando conferência</span>
                           : c.status === 'aguardando_embalagem' ? <span style={{ color: 'var(--text3)' }}>📦 aguardando embalagem</span>
                           : <span style={{ color: c.status === 'ok' ? 'var(--green)' : c.diferenca > 0 ? 'var(--red)' : 'var(--amber)', fontWeight: 700 }}>{c.diferenca === 0 ? '0' : (c.diferenca > 0 ? '−' : '+') + fmtNum(Math.abs(c.diferenca)) + ' un.'}</span>}
                         </td>
@@ -345,7 +361,7 @@ export default function MinhaProducao() {
 
       {/* Modal Contestar Revisão */}
       {contestando && (
-        <Modal title="⚑ Contestar Revisão" onClose={() => { setContestando(null); setMotivoCont('') }} width={460}>
+        <Modal title="⚑ Contestar Conferência" onClose={() => { setContestando(null); setMotivoCont('') }} width={460}>
           <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 10 }}>
             Dia {fmtData(contestando.data)} · Perda registrada: <strong style={{ color: 'var(--red)' }}>{fmtNum(contestando.perda || 0)} un.</strong>
           </div>
@@ -354,7 +370,7 @@ export default function MinhaProducao() {
             <textarea rows={3} value={motivoCont} placeholder="Ex: entreguei 3.000 unidades contadas, a perda registrada não bate..." onChange={e => setMotivoCont(e.target.value)} />
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--text3)', marginBottom: 12 }}>
-            ℹ️ Sua contestação vai aparecer para o administrador no Controle de Qualidade.
+            ℹ️ Sua contestação vai aparecer para o administrador, que vai conferir e te responder.
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn btn-primary" onClick={handleContestar} disabled={enviandoCont}>{enviandoCont ? '...' : 'Enviar Contestação'}</button>

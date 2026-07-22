@@ -61,7 +61,7 @@ export default function HistEquipe() {
   }, [registros, cqRegistros, ativos, periodo, valorMil])
 
   const exportar = () => exportCSV(
-    [['Funcionário', 'Total', 'Valor', 'Dias', 'Média/Dia', 'Eficiência', 'Dias na Meta', 'Perda (revisão)'],
+    [['Funcionário', 'Total', 'Valor', 'Dias', 'Média/Dia', 'Eficiência', 'Dias na Meta', 'Perda (conferência)'],
      ...stats.porFunc.map(({ f, tot, val, dias, media, pct, diasMeta, perda }) => [f.nome, tot, `R$${val.toFixed(2)}`, dias, media, pct + '%', diasMeta + '/' + dias, perda])],
     `equipe_${periodo}d.csv`
   )
@@ -89,7 +89,7 @@ export default function HistEquipe() {
           { cls:'sc-green', sv:'sv-green', label:'Valor Total',         val:fmtMoeda(stats.totalVal), small:true },
           { cls:'sc-blue',  sv:'sv-blue',  label:'Média/Dia/Operador',  val:fmtNum(stats.mediaEquipe)+' un.' },
           { cls:'sc-amber', sv:'sv-amber', label:'Dias Registrados',    val:stats.diasUnicos+' de '+periodo },
-          { cls:'sc-red',   sv:'sv-red',   label:'Perda Equipe (revisão)', val:fmtNum(stats.totalPerd)+' un.' },
+          { cls:'sc-red',   sv:'sv-red',   label:'Perda Equipe (conferência)', val:fmtNum(stats.totalPerd)+' un.' },
         ].map(x => (
           <div key={x.label} className={`stat-card ${x.cls}`}>
             <div className="stat-label">{x.label}</div>
@@ -140,7 +140,7 @@ export default function HistEquipe() {
           : stats.porFunc.length === 0
             ? <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Sem dados no período</div></div>
             : <div className="table-wrap"><table>
-                <thead><tr><th>#</th><th>Funcionário</th><th>Total</th><th>Valor</th><th>Dias</th><th>Média/Dia</th><th>Dias na Meta</th><th>Eficiência</th><th>Perda (revisão)</th></tr></thead>
+                <thead><tr><th>#</th><th>Funcionário</th><th>Total</th><th>Valor</th><th>Dias</th><th>Média/Dia</th><th>Dias na Meta</th><th>Eficiência</th><th>Perda (conferência)</th></tr></thead>
                 <tbody>{stats.porFunc.map((x, i) => (
                   <tr key={x.f.id}>
                     <td style={{ fontFamily: 'Barlow Condensed,sans-serif', fontSize: 16, fontWeight: 800, color: 'var(--text3)' }}>{MEDALS[i] || i + 1}</td>

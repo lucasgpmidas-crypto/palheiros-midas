@@ -49,7 +49,7 @@ export default function HistIndividual() {
 
   const exportar = () => {
     if (!f) return
-    exportCSV([['Data', 'Dia', 'Produzido', 'Aproveitado', 'Perda (revisão)', 'Taxa', 'Valor', '% Meta', 'Obs.'],
+    exportCSV([['Data', 'Dia', 'Produzido', 'Aproveitado', 'Perda (conferência)', 'Taxa', 'Valor', '% Meta', 'Obs.'],
       ...registros.map(r => {
         const pct = pctMeta(r.quantidade, f.meta_diaria)
         const perda = perdaPorData.get(r.data)
@@ -92,7 +92,7 @@ export default function HistIndividual() {
                 { cls: 'sc-green',  sv: 'sv-green',  label: 'Valor',  val: fmtMoeda(valor), small: true },
                 { cls: 'sc-blue',   sv: 'sv-blue',   label: 'Média/Dia', val: fmtNum(media) + ' un.' },
                 { cls: 'sc-amber',  sv: 'sv-amber',  label: 'Melhor Dia', val: fmtNum(melhor) + ' un.' },
-                { cls: 'sc-red',    sv: 'sv-red',    label: 'Perda Total (revisão)', val: fmtNum(totalPerd) + ' un.' },
+                { cls: 'sc-red',    sv: 'sv-red',    label: 'Perda Total (conferência)', val: fmtNum(totalPerd) + ' un.' },
                 { cls: 'sc-purple', sv: '',           label: 'Taxa Média', val: taxaMedia != null ? taxaMedia + '%' : '—', cor: 'var(--purple)' },
               ].map(x => (
                 <div key={x.label} className={`stat-card ${x.cls}`}>
@@ -145,7 +145,7 @@ export default function HistIndividual() {
               : registros.length === 0
                 ? <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Sem registros no período</div></div>
                 : <div className="table-wrap"><table>
-                    <thead><tr><th>Data</th><th>Dia</th><th>Produzido</th><th>Aproveitado</th><th>Perda (revisão)</th><th>Taxa</th><th>Valor</th><th>% Meta</th><th>vs Média</th><th>Obs.</th></tr></thead>
+                    <thead><tr><th>Data</th><th>Dia</th><th>Produzido</th><th>Aproveitado</th><th>Perda (conferência)</th><th>Taxa</th><th>Valor</th><th>% Meta</th><th>vs Média</th><th>Obs.</th></tr></thead>
                     <tbody>{registros.map(r => {
                       const pct = f ? pctMeta(r.quantidade, f.meta_diaria) : 0
                       const diff = r.quantidade - media
