@@ -75,7 +75,8 @@ export default function Login() {
       <div style={{ width:380, background:'var(--bg2)', border:'1px solid var(--border2)', borderRadius:20, padding:'48px 40px', textAlign:'center', position:'relative', overflow:'hidden' }}>
         <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'linear-gradient(90deg,transparent,var(--gold-dark),var(--gold-light),var(--gold-dark),transparent)', borderRadius:'20px 20px 0 0' }} />
 
-        <div style={{ width:76, height:76, margin:'0 auto 20px', background:'linear-gradient(135deg,var(--gold-dark),var(--gold-light))', borderRadius:20, display:'flex', alignItems:'center', justifyContent:'center', fontSize:36, boxShadow:'0 8px 32px rgba(201,162,39,.3)' }}>🌾</div>
+        <img src="/logo-grupo-midas.png" alt="Grupo Midas"
+          style={{ width:120, height:120, margin:'0 auto 16px', display:'block', objectFit:'contain', filter:'drop-shadow(0 8px 24px rgba(201,162,39,.35))' }} />
         <div style={{ fontFamily:'Barlow Condensed,sans-serif', fontSize:28, fontWeight:800, color:'var(--gold-light)', letterSpacing:2 }}>PALHEIROS MIDAS</div>
         <div style={{ fontSize:11, color:'var(--text3)', textTransform:'uppercase', letterSpacing:2.5, marginTop:4, marginBottom:28 }}>Sistema de Gestão de Produção</div>
 
