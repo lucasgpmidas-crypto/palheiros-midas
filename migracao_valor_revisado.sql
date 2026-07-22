@@ -1,4 +1,6 @@
--- Valor a pagar calculado pela REVISÃO (quantidade conferida), não pelo declarado.
+-- Valor a pagar calculado pelo ENTREGUE na revisão (o que chegou na conferência),
+-- não pelo declarado. A perda (descarte na revisão) NÃO desconta — ela faz parte
+-- do entregue. Só o faltante (declarado que nunca chegou na revisão) não é pago.
 -- Enquanto não há revisão, o valor fica provisório (baseado no declarado).
 -- Quando a finalização lança/edita/exclui a revisão, o valor do dia é recalculado.
 -- IMPORTANTE: rodar antes de criar fechamentos de período (o backfill altera registros antigos).
@@ -12,7 +14,7 @@ declare
 begin
   select coalesce(nullif(trim(valor), '')::numeric, 75) into vm from configuracoes where chave = 'valor_mil';
   if vm is null then vm := 75; end if;
-  select sum(revisada) into tot from controle_qualidade where func_id = fid and data = d;
+  select sum(entregue) into tot from controle_qualidade where func_id = fid and data = d;
   update registros_producao
     set aproveitado = tot,
         valor = round(coalesce(tot, quantidade) / 1000.0 * vm, 2)
@@ -46,7 +48,7 @@ declare
   vm numeric := 75;
   tot integer;
 begin
-  select sum(revisada) into tot from controle_qualidade where func_id = new.func_id and data = new.data;
+  select sum(entregue) into tot from controle_qualidade where func_id = new.func_id and data = new.data;
   if tot is not null then
     select coalesce(nullif(trim(valor), '')::numeric, 75) into vm from configuracoes where chave = 'valor_mil';
     if vm is null then vm := 75; end if;
