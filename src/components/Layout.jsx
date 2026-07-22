@@ -21,6 +21,7 @@ const ADMIN_NAV = [
   { to: '/hist-equipe',     icon: '👥', label: 'Equipe' },
   { section: 'Relatórios' },
   { to: '/relatorios',    icon: '📄', label: 'Relatórios' },
+  { to: '/fechamento',    icon: '🔒', label: 'Fechamento & Auditoria' },
 ]
 
 const FUNC_NAV = [
@@ -45,6 +46,7 @@ const PAGE_TITLES = {
   '/cq':              'Revisão & Empacotamento',
   '/conferencia':     'Conferência de Produção',
   '/estoque':         'Estoque & Expedição',
+  '/fechamento':      'Fechamento & Auditoria',
   '/funcionarios':    'Funcionários',
   '/alertas':         'Alertas',
   '/hist-individual': 'Histórico Individual',

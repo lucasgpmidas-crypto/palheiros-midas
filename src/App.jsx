@@ -16,6 +16,7 @@ import MinhaProducao from './pages/MinhaProducao'
 import Configuracoes from './pages/Configuracoes'
 import Conferencia from './pages/Conferencia'
 import Estoque from './pages/Estoque'
+import Fechamento from './pages/Fechamento'
 
 // Página inicial do funcionário conforme o setor
 const funcHome = (funcSession) => funcSession?.setor === 'finalizacao' ? '/cq' : '/minha-producao'
@@ -54,6 +55,7 @@ function AppRoutes() {
         <Route path="alertas"       element={<ProtectedRoute adminOnly><Alertas /></ProtectedRoute>} />
         <Route path="conferencia"   element={<ProtectedRoute adminOnly><Conferencia /></ProtectedRoute>} />
         <Route path="estoque"       element={<ProtectedRoute adminOnly><Estoque /></ProtectedRoute>} />
+        <Route path="fechamento"    element={<ProtectedRoute adminOnly><Fechamento /></ProtectedRoute>} />
         <Route path="relatorios"    element={<ProtectedRoute adminOnly><Relatorios /></ProtectedRoute>} />
         <Route path="configuracoes" element={<ProtectedRoute adminOnly><Configuracoes /></ProtectedRoute>} />
 
