@@ -214,7 +214,7 @@ export default function MinhaProducao() {
           </div>
           {parseInt(qtd) > 0 && (
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', background: 'var(--bg3)', borderRadius: 'var(--rs)', padding: '8px 14px', fontSize: 12.5, marginTop: 10 }}>
-              <span style={{ color: 'var(--text3)' }}>Valor estimado: <strong style={{ color: 'var(--green)' }}>{fmtMoeda(calcValor(parseInt(qtd), valorMil))}</strong></span>
+              <span style={{ color: 'var(--text3)' }}>Valor estimado: <strong style={{ color: 'var(--green)' }}>{fmtMoeda(calcValor(parseInt(qtd), valorMil))}</strong> <span style={{ fontSize: 11 }}>(o valor final é o da revisão)</span></span>
               {f?.meta_diaria > 0 && <span style={{ color: 'var(--text3)' }}>Meta: <strong style={{ color: corPct(pctMeta(parseInt(qtd), f.meta_diaria)) }}>{pctMeta(parseInt(qtd), f.meta_diaria)}%</strong></span>}
             </div>
           )}
@@ -231,7 +231,7 @@ export default function MinhaProducao() {
         <div className="stat-card sc-green">
           <div className="stat-label">💵 Quinzena Atual</div>
           <div className="stat-value sv-green" style={{ fontSize: 22 }}>{fmtMoeda(valorQz)}</div>
-          <div className="stat-sub">{fmtNum(totalQz)} un. · {fmtData(qz.inicio, 'dd/MM')} a {fmtData(qz.fim, 'dd/MM')}</div>
+          <div className="stat-sub">{fmtNum(totalQz)} un. · {fmtData(qz.inicio, 'dd/MM')} a {fmtData(qz.fim, 'dd/MM')} · conforme revisão</div>
         </div>
         <div className="stat-card sc-gold">
           <div className="stat-label">Posição Hoje</div>
