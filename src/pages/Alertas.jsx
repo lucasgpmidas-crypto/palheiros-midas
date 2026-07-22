@@ -1,9 +1,21 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { subDays, format } from 'date-fns'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
+import { useAlertasProativos } from '../lib/alertas'
 import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, ultimosDias, isProducao, statusConferencia } from '../lib/utils'
+import toast from 'react-hot-toast'
 
 export default function Alertas() {
+  const { alertas: proativos } = useAlertasProativos(true)
+  const [notifPerm, setNotifPerm] = useState('Notification' in window ? Notification.permission : 'unsupported')
+
+  const ativarNotificacoes = async () => {
+    const p = await Notification.requestPermission()
+    setNotifPerm(p)
+    if (p === 'granted') toast.success('🔔 Notificações ativadas! Você será avisado de alertas críticos.')
+    else toast.error('Permissão negada pelo navegador')
+  }
+
   const hoje = getHoje()
   const ini7 = format(subDays(new Date(), 7), 'yyyy-MM-dd')
   const { funcionarios } = useFuncionarios()
@@ -81,6 +93,25 @@ export default function Alertas() {
 
   return (
     <div>
+      <div className="card" style={{ marginBottom: 18 }}>
+        <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <span>🚨 Pendências que Precisam de Você</span>
+          {notifPerm === 'default' && (
+            <button className="btn btn-secondary btn-sm" onClick={ativarNotificacoes}>🔔 Ativar notificações no navegador</button>
+          )}
+          {notifPerm === 'granted' && <span style={{ fontSize: 11.5, color: 'var(--green)', fontWeight: 600 }}>🔔 Notificações ativas</span>}
+        </div>
+        {proativos.length === 0
+          ? <div className="alert a-success"><div style={{ fontSize: 17 }}>✅</div><div><strong>Nada pendente!</strong><span>Toda produção chegou na revisão, sem contestações abertas, estoque e fechamento em dia.</span></div></div>
+          : proativos.map(a => (
+            <div key={a.id} className={`alert ${a.nivel === 'critico' ? 'a-danger' : 'a-warn'}`}>
+              <div style={{ fontSize: 17 }}>{a.icone}</div>
+              <div><strong>{a.titulo}</strong><span>{a.detalhe}</span></div>
+            </div>
+          ))
+        }
+      </div>
+
       <div className="stat-grid" style={{ marginBottom: 18 }}>
         {[
           ['sc-green', 'sv-green', 'Atingiram Meta', analise.acima.length, 'hoje'],

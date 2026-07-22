@@ -4,13 +4,15 @@ import { fmtMoeda, fmtNum } from '../lib/utils'
 import toast from 'react-hot-toast'
 
 export default function Configuracoes() {
-  const { valorMil, uniDisplay, uniMaco, tolerancia, quinzenaD1, quinzenaD2, salvarValorMil, salvarConfig } = useConfig()
+  const { valorMil, uniDisplay, uniMaco, tolerancia, quinzenaD1, quinzenaD2, diasSemRevisao, estoqueMinimo, salvarValorMil, salvarConfig } = useConfig()
   const [novoValor, setNovoValor] = useState('')
   const [saving, setSaving] = useState(false)
   const [emb, setEmb] = useState({ display: '', maco: '', tol: '' })
   const [savingEmb, setSavingEmb] = useState(false)
   const [qz, setQz] = useState({ d1: '', d2: '' })
   const [savingQz, setSavingQz] = useState(false)
+  const [al, setAl] = useState({ dias: '', minimo: '' })
+  const [savingAl, setSavingAl] = useState(false)
 
   const handleSalvar = async () => {
     const v = parseFloat(novoValor)
@@ -46,6 +48,19 @@ export default function Configuracoes() {
     setQz({ d1: '', d2: '' })
     setSavingQz(false)
     toast.success('Quinzena de pagamento salva!')
+  }
+
+  const handleSalvarAl = async () => {
+    const dias = parseInt(al.dias)
+    const minimo = parseInt(al.minimo)
+    if (al.dias !== '' && (isNaN(dias) || dias < 1)) { toast.error('Dias sem revisão deve ser 1 ou mais'); return }
+    if (al.minimo !== '' && (isNaN(minimo) || minimo < 0)) { toast.error('Estoque mínimo deve ser 0 ou mais'); return }
+    setSavingAl(true)
+    if (al.dias !== '') await salvarConfig('dias_sem_revisao', dias)
+    if (al.minimo !== '') await salvarConfig('estoque_minimo', minimo)
+    setAl({ dias: '', minimo: '' })
+    setSavingAl(false)
+    toast.success('Configurações de alertas salvas!')
   }
 
   const pvD1 = parseInt(qz.d1) || quinzenaD1
@@ -130,6 +145,26 @@ export default function Configuracoes() {
           <strong style={{ color: 'var(--gold-light)' }}>1ª quinzena: dia {pvD1} a {pvD2 - 1}</strong>
           <span style={{ color: 'var(--text3)' }}> · </span>
           <strong style={{ color: 'var(--gold-light)' }}>2ª quinzena: dia {pvD2} ao dia {pvD1 - 1} do mês seguinte</strong>
+        </div>
+      </div>
+
+      <div className="card mb16">
+        <div className="card-title">🔔 Alertas Proativos</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 14 }}>
+          O sistema avisa quando a produção declarada em Barretos não aparece na revisão de Orlândia dentro do prazo, e quando o estoque de displays fica abaixo do mínimo (0 = desativado).
+        </div>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="fg" style={{ margin: 0 }}>
+            <label>Dias até alertar produção sem revisão (atual: {diasSemRevisao})</label>
+            <input type="number" min="1" placeholder={String(diasSemRevisao)} value={al.dias} onChange={e => setAl(v => ({ ...v, dias: e.target.value }))} style={{ width: 160 }} />
+          </div>
+          <div className="fg" style={{ margin: 0 }}>
+            <label>Estoque mínimo em displays (atual: {fmtNum(estoqueMinimo)})</label>
+            <input type="number" min="0" placeholder={String(estoqueMinimo)} value={al.minimo} onChange={e => setAl(v => ({ ...v, minimo: e.target.value }))} style={{ width: 160 }} />
+          </div>
+          <button className="btn btn-primary" onClick={handleSalvarAl} disabled={savingAl || (al.dias === '' && al.minimo === '')}>
+            {savingAl ? 'Salvando...' : 'Salvar'}
+          </button>
         </div>
       </div>
 

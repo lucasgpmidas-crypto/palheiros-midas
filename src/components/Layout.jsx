@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { useAlertasProativos } from '../lib/alertas'
 import { getIniciais, avatarCor } from '../lib/utils'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -61,6 +62,7 @@ export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { total: totalAlertas, criticos } = useAlertasProativos(isAdmin)
 
   const nav = isAdmin ? ADMIN_NAV : isFinalizacao ? FIN_NAV : FUNC_NAV
   const hoje = format(new Date(), "EEE, dd 'de' MMM", { locale: ptBR })
@@ -111,6 +113,7 @@ export default function Layout() {
               >
                 <span className="nav-icon">{item.icon}</span>
                 {item.label}
+                {item.to === '/alertas' && totalAlertas > 0 && <span className="nav-badge">{totalAlertas}</span>}
               </NavLink>
             )
           )}
@@ -145,7 +148,15 @@ export default function Layout() {
             <button className="hamburger" onClick={() => setSidebarOpen(v => !v)}>☰</button>
             <h1 className="page-title">{title}</h1>
           </div>
-          <div className="date-chip">{hoje}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {isAdmin && totalAlertas > 0 && (
+              <button className="date-chip" onClick={() => navigate('/alertas')} title="Ver alertas"
+                style={{ cursor: 'pointer', border: '1px solid ' + (criticos > 0 ? 'var(--red)' : 'var(--amber)'), color: criticos > 0 ? 'var(--red)' : 'var(--amber)', background: 'transparent', fontWeight: 700 }}>
+                🔔 {totalAlertas}
+              </button>
+            )}
+            <div className="date-chip">{hoje}</div>
+          </div>
         </header>
 
         <div className="content">
