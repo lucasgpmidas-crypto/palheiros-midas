@@ -92,7 +92,7 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sb-logo">
-          <div className="logo-mark">🌾</div>
+          <img src="/logo-grupo-midas.png" alt="Grupo Midas" style={{ width: 42, height: 42, objectFit: 'contain', flexShrink: 0 }} />
           <div>
             <div className="brand-name">MIDAS</div>
             <div className="brand-sub">Palheiros</div>
