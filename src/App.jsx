@@ -15,6 +15,7 @@ import HistEquipe from './pages/HistEquipe'
 import MinhaProducao from './pages/MinhaProducao'
 import Configuracoes from './pages/Configuracoes'
 import Conferencia from './pages/Conferencia'
+import Estoque from './pages/Estoque'
 
 // Página inicial do funcionário conforme o setor
 const funcHome = (funcSession) => funcSession?.setor === 'finalizacao' ? '/cq' : '/minha-producao'
@@ -52,6 +53,7 @@ function AppRoutes() {
         <Route path="funcionarios"  element={<ProtectedRoute adminOnly><Funcionarios /></ProtectedRoute>} />
         <Route path="alertas"       element={<ProtectedRoute adminOnly><Alertas /></ProtectedRoute>} />
         <Route path="conferencia"   element={<ProtectedRoute adminOnly><Conferencia /></ProtectedRoute>} />
+        <Route path="estoque"       element={<ProtectedRoute adminOnly><Estoque /></ProtectedRoute>} />
         <Route path="relatorios"    element={<ProtectedRoute adminOnly><Relatorios /></ProtectedRoute>} />
         <Route path="configuracoes" element={<ProtectedRoute adminOnly><Configuracoes /></ProtectedRoute>} />
 
