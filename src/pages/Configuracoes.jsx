@@ -4,11 +4,13 @@ import { fmtMoeda, fmtNum } from '../lib/utils'
 import toast from 'react-hot-toast'
 
 export default function Configuracoes() {
-  const { valorMil, uniDisplay, uniMaco, tolerancia, salvarValorMil, salvarConfig } = useConfig()
+  const { valorMil, uniDisplay, uniMaco, tolerancia, quinzenaD1, quinzenaD2, salvarValorMil, salvarConfig } = useConfig()
   const [novoValor, setNovoValor] = useState('')
   const [saving, setSaving] = useState(false)
   const [emb, setEmb] = useState({ display: '', maco: '', tol: '' })
   const [savingEmb, setSavingEmb] = useState(false)
+  const [qz, setQz] = useState({ d1: '', d2: '' })
+  const [savingQz, setSavingQz] = useState(false)
 
   const handleSalvar = async () => {
     const v = parseFloat(novoValor)
@@ -32,6 +34,22 @@ export default function Configuracoes() {
     setSavingEmb(false)
     toast.success('Configurações da conferência salvas!')
   }
+
+  const handleSalvarQz = async () => {
+    const d1 = parseInt(qz.d1) || quinzenaD1
+    const d2 = parseInt(qz.d2) || quinzenaD2
+    if (d1 < 1 || d1 > 28 || d2 < 1 || d2 > 28) { toast.error('Use dias entre 1 e 28'); return }
+    if (d2 <= d1) { toast.error('O início da 2ª quinzena deve ser depois do início da 1ª'); return }
+    setSavingQz(true)
+    if (parseInt(qz.d1)) await salvarConfig('quinzena_d1', d1)
+    if (parseInt(qz.d2)) await salvarConfig('quinzena_d2', d2)
+    setQz({ d1: '', d2: '' })
+    setSavingQz(false)
+    toast.success('Quinzena de pagamento salva!')
+  }
+
+  const pvD1 = parseInt(qz.d1) || quinzenaD1
+  const pvD2 = parseInt(qz.d2) || quinzenaD2
 
   return (
     <div>
@@ -86,6 +104,32 @@ export default function Configuracoes() {
           <button className="btn btn-primary" onClick={handleSalvarEmb} disabled={savingEmb || (!emb.display && !emb.maco && !emb.tol)}>
             {savingEmb ? 'Salvando...' : 'Salvar'}
           </button>
+        </div>
+      </div>
+
+      <div className="card mb16">
+        <div className="card-title">🗓 Quinzena de Pagamento</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 14 }}>
+          Define o período que o funcionário vê como "quinzena atual" e os botões de quinzena da Folha de Pagamento.
+        </div>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="fg" style={{ margin: 0 }}>
+            <label>Dia que abre a 1ª quinzena (atual: {quinzenaD1})</label>
+            <input type="number" min="1" max="28" placeholder={String(quinzenaD1)} value={qz.d1} onChange={e => setQz(v => ({ ...v, d1: e.target.value }))} style={{ width: 160 }} />
+          </div>
+          <div className="fg" style={{ margin: 0 }}>
+            <label>Dia que abre a 2ª quinzena (atual: {quinzenaD2})</label>
+            <input type="number" min="1" max="28" placeholder={String(quinzenaD2)} value={qz.d2} onChange={e => setQz(v => ({ ...v, d2: e.target.value }))} style={{ width: 160 }} />
+          </div>
+          <button className="btn btn-primary" onClick={handleSalvarQz} disabled={savingQz || (!qz.d1 && !qz.d2)}>
+            {savingQz ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+        <div style={{ marginTop: 14, background: 'var(--bg3)', borderRadius: 'var(--rs)', padding: '10px 14px', fontSize: 13 }}>
+          <span style={{ color: 'var(--text3)' }}>Períodos resultantes: </span>
+          <strong style={{ color: 'var(--gold-light)' }}>1ª quinzena: dia {pvD1} a {pvD2 - 1}</strong>
+          <span style={{ color: 'var(--text3)' }}> · </span>
+          <strong style={{ color: 'var(--gold-light)' }}>2ª quinzena: dia {pvD2} ao dia {pvD1 - 1} do mês seguinte</strong>
         </div>
       </div>
 

@@ -5,7 +5,7 @@ import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
-import { getHoje, fmtMoeda, fmtNum, pctMeta, corPct, avatarCor, getIniciais, ultimosDias, calcValor, statusConferencia } from '../lib/utils'
+import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, ultimosDias, calcValor, statusConferencia, getQuinzenaAtual } from '../lib/utils'
 import toast from 'react-hot-toast'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, LineElement, PointElement)
@@ -14,7 +14,7 @@ export default function MinhaProducao() {
   const { funcSession, isFinalizacao } = useAuth()
   const funcId = funcSession?.id
   const { funcionarios } = useFuncionarios()
-  const { valorMil, uniDisplay, uniMaco, tolerancia } = useConfig()
+  const { valorMil, uniDisplay, uniMaco, tolerancia, quinzenaD1, quinzenaD2 } = useConfig()
   const hoje = getHoje()
   const ini30 = format(subDays(new Date(), 30), 'yyyy-MM-dd')
 
@@ -39,6 +39,12 @@ export default function MinhaProducao() {
   }
   const rankHoje = [...regsHoje].sort((a, b) => b.quantidade - a.quantidade)
   const minhaPos = rankHoje.findIndex(r => r.func_id === funcId) + 1
+
+  // Quinzena de pagamento atual (o início fica no máximo ~16 dias atrás, coberto pelos 30 dias buscados)
+  const qz = getQuinzenaAtual(quinzenaD1, quinzenaD2)
+  const regsQz  = meusRegs.filter(r => r.data >= qz.inicio && r.data <= qz.fim)
+  const totalQz = regsQz.reduce((s, r) => s + r.quantidade, 0)
+  const valorQz = regsQz.reduce((s, r) => s + Number(r.valor || 0), 0)
 
   const total30  = meusRegs.reduce((s, r) => s + r.quantidade, 0)
   const valor30  = meusRegs.reduce((s, r) => s + Number(r.valor || 0), 0)
@@ -160,6 +166,11 @@ export default function MinhaProducao() {
 
       {/* Stats */}
       <div className="stat-grid mb16">
+        <div className="stat-card sc-green">
+          <div className="stat-label">💵 Quinzena Atual</div>
+          <div className="stat-value sv-green" style={{ fontSize: 22 }}>{fmtMoeda(valorQz)}</div>
+          <div className="stat-sub">{fmtNum(totalQz)} un. · {fmtData(qz.inicio, 'dd/MM')} a {fmtData(qz.fim, 'dd/MM')}</div>
+        </div>
         <div className="stat-card sc-gold">
           <div className="stat-label">Posição Hoje</div>
           <div className="stat-value sv-gold" style={{ fontSize: 28 }}>{posLabel}</div>

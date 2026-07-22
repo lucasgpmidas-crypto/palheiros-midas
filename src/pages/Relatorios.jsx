@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRegistros, useFuncionarios, useConfig } from '../lib/hooks'
-import { getHoje, getOntem, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, getSemana, getMes, getQuinzena, exportCSV, exportXLSX, isProducao } from '../lib/utils'
+import { getHoje, getOntem, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, getSemana, getMes, getQuinzena, getQuinzenaAtual, exportCSV, exportXLSX, isProducao } from '../lib/utils'
 import { format, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -218,12 +218,16 @@ function TabIndividual({ funcionarios, valorMil }) {
 }
 
 function TabFolha({ funcionarios, valorMil }) {
-  const _q0 = (() => {
-    const dia = new Date().getDate()
-    return dia >= 9 && dia <= 24 ? getQuinzena(1) : getQuinzena(2)
-  })()
+  const { quinzenaD1, quinzenaD2 } = useConfig()
+  const _q0 = getQuinzenaAtual(quinzenaD1, quinzenaD2)
   const [inicio, setInicio] = useState(_q0.inicio)
   const [fim, setFim] = useState(_q0.fim)
+  // Os dias de corte chegam do banco depois do primeiro render — realinha o período padrão
+  useEffect(() => {
+    const q = getQuinzenaAtual(quinzenaD1, quinzenaD2)
+    setInicio(q.inicio)
+    setFim(q.fim)
+  }, [quinzenaD1, quinzenaD2])
   const { registros, loading } = useRegistros({ dataInicio: inicio, dataFim: fim })
 
   const diasPeriodo = inicio && fim
@@ -247,7 +251,7 @@ function TabFolha({ funcionarios, valorMil }) {
   const labelPeriodo = inicio && fim ? `${fmtData(inicio)} a ${fmtData(fim)}` : '—'
 
   const aplicarQuinzena = (num) => {
-    const q = getQuinzena(num)
+    const q = getQuinzena(num, quinzenaD1, quinzenaD2)
     setInicio(q.inicio)
     setFim(q.fim)
   }
@@ -268,8 +272,8 @@ function TabFolha({ funcionarios, valorMil }) {
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div className="fg" style={{ margin: 0 }}><label>Início</label><input type="date" value={inicio} max={fim} onChange={e => setInicio(e.target.value)} /></div>
           <div className="fg" style={{ margin: 0 }}><label>Fim</label><input type="date" value={fim} min={inicio} onChange={e => setFim(e.target.value)} /></div>
-          <button className="btn btn-secondary btn-sm" onClick={() => aplicarQuinzena(1)} title="Dia 9 a 24 do mês atual">1ª Quinzena</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => aplicarQuinzena(2)} title="Dia 25 ao dia 10 do mês seguinte">2ª Quinzena</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => aplicarQuinzena(1)} title={`Dia ${quinzenaD1} a ${quinzenaD2 - 1} do mês atual`}>1ª Quinzena</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => aplicarQuinzena(2)} title={`Dia ${quinzenaD2} ao dia ${quinzenaD1 - 1} do mês seguinte`}>2ª Quinzena</button>
           <button className="btn btn-secondary" onClick={exportarCSV} disabled={porFunc.length === 0}>⬇ CSV</button>
           <button className="btn btn-secondary" onClick={exportarXLSX} disabled={porFunc.length === 0} style={{ color: 'var(--green)', borderColor: 'rgba(40,180,133,.3)' }}>⬇ Excel</button>
         </div>

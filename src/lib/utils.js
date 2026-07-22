@@ -75,29 +75,37 @@ export const getMes = (mesStr) => {
   }
 }
 
-// Retorna o período da quinzena (1ª: 9-24 do mês atual; 2ª: 25 ao 10 do próximo)
-// A 2ª quinzena detecta automaticamente: se hoje >= 25, pega a corrente; senão, a anterior
-export const getQuinzena = (num) => {
+// Quinzenas de pagamento. Os dias de corte vêm das Configurações (chaves
+// quinzena_d1/quinzena_d2): d1 = dia que abre a 1ª quinzena, d2 = dia que abre a 2ª.
+// 1ª: d1 até (d2−1) do mesmo mês · 2ª: d2 até (d1−1) do mês seguinte — sem sobreposição.
+export const getQuinzena = (num, d1 = 9, d2 = 24) => {
   const hoje = new Date()
   const dia = hoje.getDate()
   const ano = hoje.getFullYear()
   const mes = hoje.getMonth()
   if (num === 1) {
     return {
-      inicio: format(new Date(ano, mes, 9), 'yyyy-MM-dd'),
-      fim: format(new Date(ano, mes, 24), 'yyyy-MM-dd'),
+      inicio: format(new Date(ano, mes, d1), 'yyyy-MM-dd'),
+      fim: format(new Date(ano, mes, d2 - 1), 'yyyy-MM-dd'),
     }
   }
-  if (dia >= 25) {
+  if (dia >= d2) {
     return {
-      inicio: format(new Date(ano, mes, 25), 'yyyy-MM-dd'),
-      fim: format(new Date(ano, mes + 1, 10), 'yyyy-MM-dd'),
+      inicio: format(new Date(ano, mes, d2), 'yyyy-MM-dd'),
+      fim: format(new Date(ano, mes + 1, d1 - 1), 'yyyy-MM-dd'),
     }
   }
   return {
-    inicio: format(new Date(ano, mes - 1, 25), 'yyyy-MM-dd'),
-    fim: format(new Date(ano, mes, 10), 'yyyy-MM-dd'),
+    inicio: format(new Date(ano, mes - 1, d2), 'yyyy-MM-dd'),
+    fim: format(new Date(ano, mes, d1 - 1), 'yyyy-MM-dd'),
   }
+}
+
+// Quinzena que contém a data de hoje
+export const getQuinzenaAtual = (d1 = 9, d2 = 24) => {
+  const dia = new Date().getDate()
+  const num = dia >= d1 && dia < d2 ? 1 : 2
+  return { ...getQuinzena(num, d1, d2), num }
 }
 
 export const ultimosDias = (n) =>

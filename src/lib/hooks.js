@@ -149,10 +149,10 @@ export function useCQ(filtros = {}) {
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const CFG_KEYS = { valor_mil: 'valorMil', uni_display: 'uniDisplay', uni_maco: 'uniMaco', tolerancia_conf: 'tolerancia' }
+const CFG_KEYS = { valor_mil: 'valorMil', uni_display: 'uniDisplay', uni_maco: 'uniMaco', tolerancia_conf: 'tolerancia', quinzena_d1: 'quinzenaD1', quinzena_d2: 'quinzenaD2' }
 
 export function useConfig() {
-  const [cfg, setCfg] = useState({ valorMil: 75, uniDisplay: 200, uniMaco: 20, tolerancia: 2 })
+  const [cfg, setCfg] = useState({ valorMil: 75, uniDisplay: 200, uniMaco: 20, tolerancia: 2, quinzenaD1: 9, quinzenaD2: 24 })
 
   useEffect(() => {
     supabase.from('configuracoes').select('chave, valor').in('chave', Object.keys(CFG_KEYS))
