@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, LineElement, PointElement } from 'chart.js'
 import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, ultimosDias, calcValor, statusConferencia, getQuinzenaAtual } from '../lib/utils'
 import Modal from '../components/Modal'
@@ -32,6 +33,32 @@ export default function MinhaProducao() {
 
   const f = funcionarios.find(x => x.id === funcId)
   const meuHoje = regsHoje.find(r => r.func_id === funcId)
+
+  // Recorde pessoal de todos os tempos (uma linha só, direto do banco)
+  const [recorde, setRecorde] = useState(null)
+  useEffect(() => {
+    if (!funcId) return
+    supabase.from('registros_producao')
+      .select('quantidade, data')
+      .eq('func_id', funcId)
+      .order('quantidade', { ascending: false })
+      .limit(1)
+      .then(({ data }) => setRecorde(data?.[0] || null))
+  }, [funcId, meuHoje?.quantidade])
+
+  // Sequência de registros consecutivos batendo a meta (mais recente primeiro;
+  // dias sem registro não quebram, só não contam)
+  const streak = useMemo(() => {
+    if (!f?.meta_diaria) return 0
+    let s = 0
+    for (const r of meusRegs) {
+      if (r.quantidade >= f.meta_diaria) s++
+      else break
+    }
+    return s
+  }, [meusRegs, f])
+
+  const recordeHoje = !!(meuHoje && recorde && recorde.data === hoje && meuHoje.quantidade >= recorde.quantidade)
 
   const handleRegistrar = async () => {
     const q = parseInt(qtd)
@@ -145,6 +172,27 @@ export default function MinhaProducao() {
             : <div style={{ fontSize: 13, color: 'var(--amber)' }}>⚠️ Sem registro hoje</div>
           }
         </div>
+
+        {/* Conquistas */}
+        {!isFinalizacao && (streak >= 2 || recorde || recordeHoje) && (
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+            {recordeHoje && (
+              <div className="stats-chip" style={{ borderColor: 'rgba(40,180,133,.45)', background: 'rgba(40,180,133,.08)' }}>
+                🎉 <strong style={{ color: 'var(--green)' }}>Novo recorde pessoal hoje!</strong>
+              </div>
+            )}
+            {streak >= 2 && (
+              <div className="stats-chip">
+                🔥 <strong style={{ color: 'var(--amber)' }}>{streak} registros seguidos</strong>&nbsp;<span style={{ color: 'var(--text3)' }}>batendo a meta</span>
+              </div>
+            )}
+            {recorde && !recordeHoje && (
+              <div className="stats-chip">
+                🏅 <span style={{ color: 'var(--text3)' }}>Recorde pessoal:</span>&nbsp;<strong style={{ color: 'var(--gold-light)' }}>{fmtNum(recorde.quantidade)} un.</strong>&nbsp;<span style={{ color: 'var(--text3)' }}>({fmtData(recorde.data, 'dd/MM/yy')})</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Registrar produção de hoje */}
