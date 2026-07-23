@@ -71,8 +71,8 @@ export default function Login() {
   }
 
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:'var(--bg)', backgroundImage:'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(201,162,39,.12) 0%, transparent 60%)' }}>
-      <div style={{ width:380, background:'var(--bg2)', border:'1px solid var(--border2)', borderRadius:20, padding:'48px 40px', textAlign:'center', position:'relative', overflow:'hidden' }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', padding:16, background:'var(--bg)', backgroundImage:'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(201,162,39,.12) 0%, transparent 60%)' }}>
+      <div style={{ width:'100%', maxWidth:380, background:'var(--bg2)', border:'1px solid var(--border2)', borderRadius:20, padding:'40px 26px', textAlign:'center', position:'relative', overflow:'hidden' }}>
         <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'linear-gradient(90deg,transparent,var(--gold-dark),var(--gold-light),var(--gold-dark),transparent)', borderRadius:'20px 20px 0 0' }} />
 
         <img src="/logo-grupo-midas.png" alt="Grupo Midas"

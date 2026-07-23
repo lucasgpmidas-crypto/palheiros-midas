@@ -40,6 +40,24 @@ const FIN_NAV = [
   { to: '/hist-equipe',    icon: '🏆', label: 'Ranking da Equipe' },
 ]
 
+// Barra inferior (celular): os atalhos essenciais de cada perfil, como app nativo
+const BOTTOM_ADMIN = [
+  { to: '/',          icon: '📊', label: 'Início' },
+  { to: '/registro',  icon: '✏️',  label: 'Registrar' },
+  { to: '/cq',        icon: '📦', label: 'Revisão' },
+  { to: '/alertas',   icon: '🔔', label: 'Alertas', badge: true },
+  { menu: true,       icon: '☰',  label: 'Mais' },
+]
+const BOTTOM_FUNC = [
+  { to: '/minha-producao',  icon: '⭐', label: 'Produção' },
+  { to: '/hist-individual', icon: '📈', label: 'Histórico' },
+  { to: '/hist-equipe',     icon: '🏆', label: 'Ranking' },
+]
+const BOTTOM_FIN = [
+  { to: '/cq',          icon: '📦', label: 'Revisão' },
+  { to: '/hist-equipe', icon: '🏆', label: 'Ranking' },
+]
+
 const PAGE_TITLES = {
   '/':                'Dashboard',
   '/registro':        'Registrar Produção',
@@ -65,6 +83,7 @@ export default function Layout() {
   const { total: totalAlertas, criticos } = useAlertasProativos(isAdmin)
 
   const nav = isAdmin ? ADMIN_NAV : isFinalizacao ? FIN_NAV : FUNC_NAV
+  const bottomNav = isAdmin ? BOTTOM_ADMIN : isFinalizacao ? BOTTOM_FIN : BOTTOM_FUNC
   const hoje = format(new Date(), "EEE, dd 'de' MMM", { locale: ptBR })
   const title = PAGE_TITLES[location.pathname] || 'Palheiros Midas'
 
@@ -155,13 +174,38 @@ export default function Layout() {
                 🔔 {totalAlertas}
               </button>
             )}
-            <div className="date-chip">{hoje}</div>
+            <div className="date-chip dc-date">{hoje}</div>
           </div>
         </header>
 
         <div className="content">
           <Outlet />
         </div>
+
+        {/* Barra inferior — só aparece no celular (CSS) */}
+        <nav className="bottom-nav">
+          {bottomNav.map(item =>
+            item.menu ? (
+              <button key="menu" className="bn-item" onClick={() => setSidebarOpen(true)}>
+                <span className="bn-icon">{item.icon}</span>
+                <span className="bn-label">{item.label}</span>
+              </button>
+            ) : (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/' || item.to === '/minha-producao'}
+                className={({ isActive }) => `bn-item ${isActive ? 'active' : ''}`}
+              >
+                <span className="bn-icon">
+                  {item.icon}
+                  {item.badge && totalAlertas > 0 && <span className="bn-badge">{totalAlertas}</span>}
+                </span>
+                <span className="bn-label">{item.label}</span>
+              </NavLink>
+            )
+          )}
+        </nav>
       </div>
     </div>
   )
