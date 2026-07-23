@@ -1,22 +1,26 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './lib/auth'
 import Layout from './components/Layout'
 import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import Registro from './pages/Registro'
-import Historico from './pages/Historico'
-import Funcionarios from './pages/Funcionarios'
-import Alertas from './pages/Alertas'
-import Relatorios from './pages/Relatorios'
-import ControleCQ from './pages/ControleCQ'
-import HistIndividual from './pages/HistIndividual'
-import HistEquipe from './pages/HistEquipe'
-import MinhaProducao from './pages/MinhaProducao'
-import Configuracoes from './pages/Configuracoes'
-import Conferencia from './pages/Conferencia'
-import Estoque from './pages/Estoque'
-import Fechamento from './pages/Fechamento'
+
+// Cada tela vira um arquivo separado, baixado só quando é aberta —
+// o funcionário no celular não carrega o código das telas de admin.
+const Dashboard      = lazy(() => import('./pages/Dashboard'))
+const Registro       = lazy(() => import('./pages/Registro'))
+const Historico      = lazy(() => import('./pages/Historico'))
+const Funcionarios   = lazy(() => import('./pages/Funcionarios'))
+const Alertas        = lazy(() => import('./pages/Alertas'))
+const Relatorios     = lazy(() => import('./pages/Relatorios'))
+const ControleCQ     = lazy(() => import('./pages/ControleCQ'))
+const HistIndividual = lazy(() => import('./pages/HistIndividual'))
+const HistEquipe     = lazy(() => import('./pages/HistEquipe'))
+const MinhaProducao  = lazy(() => import('./pages/MinhaProducao'))
+const Configuracoes  = lazy(() => import('./pages/Configuracoes'))
+const Conferencia    = lazy(() => import('./pages/Conferencia'))
+const Estoque        = lazy(() => import('./pages/Estoque'))
+const Fechamento     = lazy(() => import('./pages/Fechamento'))
 
 // Página inicial do funcionário conforme o setor
 const funcHome = (funcSession) => funcSession?.setor === 'finalizacao' ? '/cq' : '/minha-producao'
@@ -43,6 +47,7 @@ function AppRoutes() {
   const home = isAdmin ? '/' : funcHome(funcSession)
 
   return (
+    <Suspense fallback={<div className="loading"><div className="spin" /></div>}>
     <Routes>
       <Route path="/login" element={isLogado ? <Navigate to={home} replace /> : <Login />} />
 
@@ -70,6 +75,7 @@ function AppRoutes() {
 
       <Route path="*" element={<Navigate to={isLogado ? home : '/login'} replace />} />
     </Routes>
+    </Suspense>
   )
 }
 
