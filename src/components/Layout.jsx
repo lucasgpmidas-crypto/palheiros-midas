@@ -155,8 +155,8 @@ export default function Layout() {
               <div className="sb-uname">{userName}</div>
               <div className="sb-urole">{userRole}</div>
             </div>
-            <button className="sb-logout" onClick={handleLogout} title="Sair">⏏</button>
           </div>
+          <button className="sb-sair" onClick={handleLogout}>⏏ Sair da Conta</button>
         </div>
       </aside>
 
