@@ -105,7 +105,7 @@ export default function Layout() {
       {/* Overlay mobile */}
       {sidebarOpen && (
         <div onClick={() => setSidebarOpen(false)}
-          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:49 }} />
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:65 }} />
       )}
 
       {/* Sidebar */}
