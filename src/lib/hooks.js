@@ -274,10 +274,24 @@ export function useExpedicoes() {
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const CFG_KEYS = { valor_mil: 'valorMil', uni_display: 'uniDisplay', uni_maco: 'uniMaco', tolerancia_conf: 'tolerancia', quinzena_d1: 'quinzenaD1', quinzena_d2: 'quinzenaD2', dias_sem_revisao: 'diasSemRevisao', estoque_minimo: 'estoqueMinimo' }
+const CFG_KEYS = {
+  valor_mil: 'valorMil', uni_display: 'uniDisplay', uni_maco: 'uniMaco', tolerancia_conf: 'tolerancia',
+  quinzena_d1: 'quinzenaD1', quinzena_d2: 'quinzenaD2', dias_sem_revisao: 'diasSemRevisao', estoque_minimo: 'estoqueMinimo',
+  // Programa de Parceria: faixas de preço por volume quinzenal + trava de qualidade + ajuda de custo CP
+  faixa_min_inter: 'faixaMinInter', faixa_min_prem: 'faixaMinPrem',
+  faixa_cp_base: 'faixaCpBase', faixa_cp_inter: 'faixaCpInter', faixa_cp_prem: 'faixaCpPrem',
+  faixa_ext_base: 'faixaExtBase', faixa_ext_inter: 'faixaExtInter', faixa_ext_prem: 'faixaExtPrem',
+  qual_premium: 'qualPremium', qual_minima: 'qualMinima', ajuda_custo_dia: 'ajudaCustoDia',
+}
 
 export function useConfig() {
-  const [cfg, setCfg] = useState({ valorMil: 75, uniDisplay: 200, uniMaco: 20, tolerancia: 2, quinzenaD1: 9, quinzenaD2: 24, diasSemRevisao: 2, estoqueMinimo: 0 })
+  const [cfg, setCfg] = useState({
+    valorMil: 75, uniDisplay: 200, uniMaco: 20, tolerancia: 2, quinzenaD1: 9, quinzenaD2: 24, diasSemRevisao: 2, estoqueMinimo: 0,
+    faixaMinInter: 11, faixaMinPrem: 18,
+    faixaCpBase: 85, faixaCpInter: 90, faixaCpPrem: 95,
+    faixaExtBase: 85, faixaExtInter: 88, faixaExtPrem: 90,
+    qualPremium: 97, qualMinima: 94, ajudaCustoDia: 10,
+  })
 
   useEffect(() => {
     supabase.from('configuracoes').select('chave, valor').in('chave', Object.keys(CFG_KEYS))

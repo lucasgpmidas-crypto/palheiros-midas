@@ -3,8 +3,23 @@ import { useConfig } from '../lib/hooks'
 import { fmtMoeda, fmtNum } from '../lib/utils'
 import toast from 'react-hot-toast'
 
+const PC_CAMPOS = [
+  ['faixa_min_inter', 'faixaMinInter', 'Faixa Intermediária a partir de (milheiros)'],
+  ['faixa_min_prem',  'faixaMinPrem',  'Faixa Premium a partir de (milheiros)'],
+  ['faixa_cp_base',   'faixaCpBase',   'CP — Base (R$/milheiro)'],
+  ['faixa_cp_inter',  'faixaCpInter',  'CP — Intermediária (R$/milheiro)'],
+  ['faixa_cp_prem',   'faixaCpPrem',   'CP — Premium (R$/milheiro)'],
+  ['faixa_ext_base',  'faixaExtBase',  'Externo — Base (R$/milheiro)'],
+  ['faixa_ext_inter', 'faixaExtInter', 'Externo — Intermediária (R$/milheiro)'],
+  ['faixa_ext_prem',  'faixaExtPrem',  'Externo — Premium (R$/milheiro)'],
+  ['qual_premium',    'qualPremium',   'Qualidade p/ preço integral (%)'],
+  ['qual_minima',     'qualMinima',    'Qualidade mínima — abaixo vai p/ Base (%)'],
+  ['ajuda_custo_dia', 'ajudaCustoDia', 'Ajuda de custo CP (R$/dia com entrega)'],
+]
+
 export default function Configuracoes() {
-  const { valorMil, uniDisplay, uniMaco, tolerancia, quinzenaD1, quinzenaD2, diasSemRevisao, estoqueMinimo, salvarValorMil, salvarConfig } = useConfig()
+  const cfg = useConfig()
+  const { valorMil, uniDisplay, uniMaco, tolerancia, quinzenaD1, quinzenaD2, diasSemRevisao, estoqueMinimo, salvarValorMil, salvarConfig } = cfg
   const [novoValor, setNovoValor] = useState('')
   const [saving, setSaving] = useState(false)
   const [emb, setEmb] = useState({ display: '', maco: '', tol: '' })
@@ -13,6 +28,8 @@ export default function Configuracoes() {
   const [savingQz, setSavingQz] = useState(false)
   const [al, setAl] = useState({ dias: '', minimo: '' })
   const [savingAl, setSavingAl] = useState(false)
+  const [pc, setPc] = useState({})
+  const [savingPc, setSavingPc] = useState(false)
 
   const handleSalvar = async () => {
     const v = parseFloat(novoValor)
@@ -61,6 +78,21 @@ export default function Configuracoes() {
     setAl({ dias: '', minimo: '' })
     setSavingAl(false)
     toast.success('Configurações de alertas salvas!')
+  }
+
+  const handleSalvarPc = async () => {
+    const itens = PC_CAMPOS.filter(([ch]) => pc[ch] !== undefined && pc[ch] !== '')
+      .map(([ch]) => [ch, parseFloat(pc[ch])])
+    if (!itens.length) { toast.error('Altere ao menos um campo'); return }
+    if (itens.some(([, v]) => isNaN(v) || v < 0)) { toast.error('Use apenas números válidos'); return }
+    const minInter = parseFloat(pc.faixa_min_inter) || cfg.faixaMinInter
+    const minPrem  = parseFloat(pc.faixa_min_prem) || cfg.faixaMinPrem
+    if (minPrem <= minInter) { toast.error('A faixa Premium deve começar depois da Intermediária'); return }
+    setSavingPc(true)
+    for (const [chave, v] of itens) await salvarConfig(chave, v)
+    setPc({})
+    setSavingPc(false)
+    toast.success('Programa de Parceria atualizado! Vale a partir de agora — comunique os parceiros com antecedência.')
   }
 
   const pvD1 = parseInt(qz.d1) || quinzenaD1
@@ -145,6 +177,32 @@ export default function Configuracoes() {
           <strong style={{ color: 'var(--gold-light)' }}>1ª quinzena: dia {pvD1} a {pvD2 - 1}</strong>
           <span style={{ color: 'var(--text3)' }}> · </span>
           <strong style={{ color: 'var(--gold-light)' }}>2ª quinzena: dia {pvD2} ao dia {pvD1 - 1} do mês seguinte</strong>
+        </div>
+      </div>
+
+      <div className="card mb16">
+        <div className="card-title">🤝 Programa de Parceria — Faixas Quinzenais</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 14 }}>
+          O preço do milheiro é definido pelo volume conferido na quinzena e vale para toda ela.
+          Qualidade (conferido ÷ entregue) abaixo de {cfg.qualPremium}% derruba o preço uma faixa; abaixo de {cfg.qualMinima}% vai para a Base.
+          A tabela fica visível para todos os parceiros no app.
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
+          {PC_CAMPOS.map(([chave, key, label]) => (
+            <div className="fg" key={chave} style={{ margin: 0 }}>
+              <label>{label} (atual: {cfg[key]})</label>
+              <input type="number" min="0" step="0.5" placeholder={String(cfg[key])} value={pc[chave] ?? ''}
+                onChange={e => setPc(v => ({ ...v, [chave]: e.target.value }))} />
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 14, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button className="btn btn-primary" onClick={handleSalvarPc} disabled={savingPc || !Object.values(pc).some(v => v !== '')}>
+            {savingPc ? 'Salvando...' : 'Salvar Programa'}
+          </button>
+          <span style={{ fontSize: 12, color: 'var(--text3)' }}>
+            Faixas atuais: Base até {cfg.faixaMinInter - 1} mil · Intermediária {cfg.faixaMinInter}–{cfg.faixaMinPrem - 1} mil · Premium {cfg.faixaMinPrem}+ mil
+          </span>
         </div>
       </div>
 

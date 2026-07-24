@@ -6,7 +6,7 @@ import { ptBR } from 'date-fns/locale'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, ultimosDias, calcValor, statusConferencia, getQuinzenaAtual } from '../lib/utils'
+import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, ultimosDias, calcValor, statusConferencia, getQuinzenaAtual, calcParceria, fmtMilheiros, corQualidade } from '../lib/utils'
 import Modal from '../components/Modal'
 import toast from 'react-hot-toast'
 
@@ -16,7 +16,8 @@ export default function MinhaProducao() {
   const { funcSession, isFinalizacao } = useAuth()
   const funcId = funcSession?.id
   const { funcionarios } = useFuncionarios()
-  const { valorMil, uniDisplay, uniMaco, tolerancia, quinzenaD1, quinzenaD2 } = useConfig()
+  const cfg = useConfig()
+  const { valorMil, uniDisplay, uniMaco, tolerancia, quinzenaD1, quinzenaD2 } = cfg
   const hoje = getHoje()
   const ini30 = format(subDays(new Date(), 30), 'yyyy-MM-dd')
 
@@ -75,7 +76,22 @@ export default function MinhaProducao() {
   const qz = getQuinzenaAtual(quinzenaD1, quinzenaD2)
   const regsQz  = meusRegs.filter(r => r.data >= qz.inicio && r.data <= qz.fim)
   const totalQz = regsQz.reduce((s, r) => s + r.quantidade, 0)
-  const valorQz = regsQz.reduce((s, r) => s + Number(r.valor || 0), 0)
+
+  // Programa de Parceria: a quinzena é apurada pelo CONFERIDO (entregue na revisão),
+  // com faixa de preço e trava de qualidade — mesma conta usada na Folha do admin
+  const cqQz = meusCQ.filter(c => c.data >= qz.inicio && c.data <= qz.fim)
+  const entregueQz = cqQz.reduce((s, c) => s + (c.entregue || 0), 0)
+  const revisadaQz = cqQz.reduce((s, c) => s + (c.revisada || 0), 0)
+  const modalidade = f?.modalidade || 'cp'
+  const parceria = calcParceria({ entregue: entregueQz, revisada: revisadaQz, modalidade, cfg })
+  const diasCqQz = new Set(cqQz.map(c => c.data))
+  const aguardandoQz = regsQz.filter(r => !diasCqQz.has(r.data)).reduce((s, r) => s + r.quantidade, 0)
+  // Rastreio declarado × aprovado (só dias já conferidos): perda + o que foi declarado mas nunca chegou
+  const declaradoConfQz = regsQz.filter(r => diasCqQz.has(r.data)).reduce((s, r) => s + r.quantidade, 0)
+  const difDeclaradoQz = declaradoConfQz - revisadaQz
+  const diasEntregaQz = new Set(regsQz.map(r => r.data)).size
+  const ajudaQz = modalidade === 'cp' ? diasEntregaQz * cfg.ajudaCustoDia : 0
+  const totalQzReceber = parceria.valor + ajudaQz
 
   const total30  = meusRegs.reduce((s, r) => s + r.quantidade, 0)
   const valor30  = meusRegs.reduce((s, r) => s + Number(r.valor || 0), 0)
@@ -118,12 +134,6 @@ export default function MinhaProducao() {
   }
 
   const perda30 = [...confPorDia.values()].reduce((s, c) => s + c.perda, 0)
-
-  // Quanto da quinzena já passou pela conferência (valor confirmado) vs aguarda
-  const valorQzConfirmado = regsQz
-    .filter(r => confPorDia.get(r.data)?.temCQ)
-    .reduce((s, r) => s + Number(r.valor || 0), 0)
-  const qzTudoConfirmado = valorQzConfirmado >= valorQz
 
   const chartData = useMemo(() => {
     const dias14 = ultimosDias(14)
@@ -236,12 +246,12 @@ export default function MinhaProducao() {
       <div className="stat-grid mb16">
         <div className="stat-card sc-green">
           <div className="stat-label">💵 Quinzena Atual</div>
-          <div className="stat-value sv-green" style={{ fontSize: 22 }}>{fmtMoeda(valorQz)}</div>
-          <div className="stat-sub">{fmtNum(totalQz)} un. · {fmtData(qz.inicio, 'dd/MM')} a {fmtData(qz.fim, 'dd/MM')}</div>
+          <div className="stat-value sv-green" style={{ fontSize: 22 }}>{fmtMoeda(totalQzReceber)}</div>
+          <div className="stat-sub">{fmtMilheiros(parceria.milheiros)} milheiros aprovados · {fmtData(qz.inicio, 'dd/MM')} a {fmtData(qz.fim, 'dd/MM')}</div>
           <div className="stat-sub" style={{ marginTop: 2 }}>
-            {valorQz === 0 ? 'sem produção ainda'
-              : qzTudoConfirmado ? '✔ tudo confirmado pela conferência'
-              : <>✔ {fmtMoeda(valorQzConfirmado)} confirmados · ⏳ o resto aguarda conferência</>}
+            {totalQz === 0 ? 'sem produção ainda'
+              : aguardandoQz > 0 ? <>⏳ {fmtNum(aguardandoQz)} un. aguardam conferência</>
+              : '✔ tudo conferido'}
           </div>
         </div>
         <div className="stat-card sc-gold">
@@ -270,6 +280,105 @@ export default function MinhaProducao() {
           <div className="stat-sub">descarte na conferência · não desconta do seu pagamento</div>
         </div>
       </div>
+
+      {/* Programa de Parceria — quinzena com a conta aberta */}
+      {!isFinalizacao && (() => {
+        const { milheiros, qualidade, faixaVolume, faixaEfetiva, travada, preco, valor, proxima, faixas } = parceria
+        const qualStr = qualidade == null ? null : qualidade.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+        return (
+          <div className="card mb16">
+            <div className="card-title">🤝 Minha Parceria — Quinzena {fmtData(qz.inicio, 'dd/MM')} a {fmtData(qz.fim, 'dd/MM')}</div>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+              <div className="stats-chip">{modalidade === 'externo' ? '🏠 Parceiro Externo' : '🏭 Parceiro CP Barretos'}</div>
+              <div className="stats-chip" style={{ borderColor: 'rgba(201,162,39,.45)' }}>
+                Faixa: <strong style={{ color: 'var(--gold-light)' }}>&nbsp;{faixaEfetiva.nome} · {fmtMoeda(preco)}/milheiro</strong>
+              </div>
+              <div className="stats-chip">
+                Qualidade: <strong style={{ color: corQualidade(qualidade, cfg) }}>&nbsp;{qualStr == null ? 'aguardando conferência' : qualStr + '%'}</strong>
+              </div>
+            </div>
+
+            {/* Progresso até a próxima faixa (pelo volume) */}
+            {proxima ? (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text3)', marginBottom: 4 }}>
+                  <span>{fmtMilheiros(milheiros)} de {fmtMilheiros(proxima.min)} milheiros</span>
+                  <span>faltam <strong style={{ color: 'var(--gold-light)' }}>{fmtMilheiros(proxima.faltam)} milheiros</strong> para a faixa {proxima.nome} ({fmtMoeda(proxima.preco)}/mil)</span>
+                </div>
+                <div className="pbar"><div className="pfill pf-gold" style={{ width: `${Math.min(100, milheiros / proxima.min * 100)}%` }} /></div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12.5, color: 'var(--green)', marginBottom: 12 }}>🏆 Você está na faixa máxima ({faixaVolume.nome})!</div>
+            )}
+
+            {/* Avisos de qualidade — por que o preço está onde está */}
+            {travada && (
+              <div style={{ fontSize: 12.5, color: 'var(--amber)', background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.25)', borderRadius: 'var(--rs)', padding: '8px 12px', marginBottom: 12 }}>
+                ⚠️ Pelo volume você alcançou a faixa <strong>{faixaVolume.nome}</strong>, mas a qualidade de {qualStr}% está segurando seu preço em <strong>{faixaEfetiva.nome} ({fmtMoeda(preco)}/mil)</strong>.
+                Qualidade de {cfg.qualPremium}% ou mais garante o preço integral da faixa.
+              </div>
+            )}
+
+            {/* Memória de cálculo — nenhum número sem a conta do lado */}
+            <div style={{ background: 'var(--bg3)', borderRadius: 'var(--rs)', padding: '10px 14px', fontSize: 13, display: 'grid', gap: 6 }}>
+              <div>
+                <span style={{ color: 'var(--text3)' }}>Produção aprovada: </span>
+                <strong>{fmtMilheiros(milheiros)} milheiros × {fmtMoeda(preco)} = </strong>
+                <strong style={{ color: 'var(--green)' }}>{fmtMoeda(valor)}</strong>
+              </div>
+              {difDeclaradoQz > 0 && (
+                <div style={{ fontSize: 12 }}>
+                  <span style={{ color: 'var(--text3)' }}>Declarado nos dias já conferidos: </span>
+                  <strong>{fmtNum(declaradoConfQz)} un.</strong>
+                  <span style={{ color: 'var(--text3)' }}> · aprovado: </span>
+                  <strong>{fmtNum(revisadaQz)} un.</strong>
+                  <span style={{ color: 'var(--text3)' }}> · diferença: </span>
+                  <strong style={{ color: 'var(--red)' }}>{fmtNum(difDeclaradoQz)} un. não pagas</strong>
+                  <span style={{ color: 'var(--text3)' }}> (descarte + o que não chegou na conferência)</span>
+                </div>
+              )}
+              {modalidade === 'cp' && (
+                <div>
+                  <span style={{ color: 'var(--text3)' }}>Ajuda de custo: </span>
+                  <strong>{diasEntregaQz} {diasEntregaQz === 1 ? 'dia' : 'dias'} com entrega × {fmtMoeda(cfg.ajudaCustoDia)} = </strong>
+                  <strong style={{ color: 'var(--green)' }}>{fmtMoeda(ajudaQz)}</strong>
+                </div>
+              )}
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 6 }}>
+                <span style={{ color: 'var(--text3)' }}>Total da quinzena até agora: </span>
+                <strong style={{ color: 'var(--green)', fontSize: 15 }}>{fmtMoeda(totalQzReceber)}</strong>
+              </div>
+              {aguardandoQz > 0 && (
+                <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+                  ⏳ Mais {fmtNum(aguardandoQz)} un. declaradas aguardam conferência — o que for aprovado entra na conta (e pode subir sua faixa).
+                </div>
+              )}
+            </div>
+
+            {/* Tabela de preços do programa — sempre visível para todos */}
+            <details style={{ marginTop: 12 }}>
+              <summary style={{ cursor: 'pointer', fontSize: 12.5, color: 'var(--gold-light)', fontWeight: 600 }}>📋 Ver tabela de preços da minha modalidade</summary>
+              <div className="table-wrap" style={{ marginTop: 8 }}><table>
+                <thead><tr><th>Faixa</th><th>Volume na quinzena</th><th>Preço por milheiro</th></tr></thead>
+                <tbody>
+                  {faixas.map((fx, i) => (
+                    <tr key={fx.nome} style={fx.nome === faixaEfetiva.nome ? { background: 'rgba(201,162,39,.07)' } : {}}>
+                      <td><strong style={{ color: fx.nome === faixaEfetiva.nome ? 'var(--gold-light)' : 'var(--text)' }}>{fx.nome}{fx.nome === faixaEfetiva.nome ? ' ← você' : ''}</strong></td>
+                      <td>{i === 0 ? `até ${fmtMilheiros(faixas[1].min - 1)}` : i < faixas.length - 1 ? `${fmtMilheiros(fx.min)} a ${fmtMilheiros(faixas[i + 1].min - 1)}` : `${fmtMilheiros(fx.min)} ou mais`} milheiros</td>
+                      <td style={{ color: 'var(--green)', fontWeight: 700 }}>{fmtMoeda(fx.preco)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table></div>
+              <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 6 }}>
+                Qualidade ≥ {cfg.qualPremium}%: preço integral da faixa · entre {cfg.qualMinima}% e {cfg.qualPremium}%: preço da faixa anterior · abaixo de {cfg.qualMinima}%: preço Base.
+                A qualidade é o quanto da sua entrega passa na conferência. Cada quinzena começa do zero.
+              </div>
+            </details>
+          </div>
+        )
+      })()}
 
       <div className="g2">
         {/* Ranking do dia */}
@@ -335,8 +444,8 @@ export default function MinhaProducao() {
                         <td style={{ color: 'var(--green)' }}>
                           {fmtMoeda(Number(r.valor))}{' '}
                           {c.temCQ
-                            ? <span title="Valor confirmado pela conferência" style={{ fontSize: 11 }}>✔</span>
-                            : <span title="Valor provisório — pode mudar quando a conferência for feita" style={{ fontSize: 11, color: 'var(--text3)' }}>⏳</span>}
+                            ? <span title="Dia conferido — o valor final segue a faixa da quinzena (veja Minha Parceria)" style={{ fontSize: 11 }}>✔</span>
+                            : <span title="Estimativa — o valor final depende da conferência e da faixa da quinzena" style={{ fontSize: 11, color: 'var(--text3)' }}>⏳</span>}
                         </td>
                         <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
                         <td style={{ color: c.temCQ ? 'var(--red)' : 'var(--text3)' }}>{c.temCQ ? fmtNum(c.perda) + ' un.' : '—'}</td>

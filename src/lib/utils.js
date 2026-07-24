@@ -52,6 +52,54 @@ export const statusConferencia = ({ temCQ, pendenteEmbalagem, base, perda, empac
   return diferenca > 0 ? 'falta' : 'sobra'
 }
 
+// ── Programa de Parceria (quinzenal) ─────────────────────────────────────────
+// Paga-se e pontua-se APENAS o APROVADO na conferência (revisada): cigarro
+// reprovado não é pago, e produção declarada que nunca chegou/nunca existiu
+// também não — o aprovado é o único número contado fisicamente. O volume
+// aprovado da quinzena define a faixa, que vale retroativamente para toda ela.
+// A qualidade da quinzena (revisada ÷ entregue) pode travar o preço numa faixa inferior:
+//   qualidade ≥ qual_premium → preço integral da faixa alcançada
+//   qual_minima ≤ qualidade < qual_premium → preço da faixa anterior
+//   qualidade < qual_minima → preço da faixa Base
+// Usada por MinhaProducao, Folha e HistEquipe — o cálculo nunca deve divergir entre telas.
+export const getFaixasParceria = (cfg, modalidade = 'cp') => {
+  const m = modalidade === 'externo' ? 'Ext' : 'Cp'
+  return [
+    { nome: 'Base', min: 0, preco: cfg[`faixa${m}Base`] },
+    { nome: 'Intermediária', min: cfg.faixaMinInter, preco: cfg[`faixa${m}Inter`] },
+    { nome: 'Premium', min: cfg.faixaMinPrem, preco: cfg[`faixa${m}Prem`] },
+  ]
+}
+
+export const calcParceria = ({ entregue, revisada, modalidade, cfg }) => {
+  const faixas = getFaixasParceria(cfg, modalidade)
+  const milheiros = (revisada || 0) / 1000
+  const qualidade = entregue > 0 ? (revisada || 0) / entregue * 100 : null
+  let idxVolume = 0
+  faixas.forEach((fx, i) => { if (i > 0 && milheiros >= fx.min) idxVolume = i })
+  let idxEfetiva = idxVolume
+  if (qualidade != null && idxVolume > 0) {
+    if (qualidade < cfg.qualMinima) idxEfetiva = 0
+    else if (qualidade < cfg.qualPremium) idxEfetiva = idxVolume - 1
+  }
+  const preco = faixas[idxEfetiva].preco
+  const proxima = idxVolume < faixas.length - 1
+    ? { ...faixas[idxVolume + 1], faltam: faixas[idxVolume + 1].min - milheiros }
+    : null
+  return {
+    milheiros, qualidade, faixas,
+    faixaVolume: faixas[idxVolume], faixaEfetiva: faixas[idxEfetiva],
+    travada: idxEfetiva < idxVolume,
+    preco, valor: Math.round(milheiros * preco * 100) / 100, proxima,
+  }
+}
+
+export const fmtMilheiros = (m) =>
+  (m ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })
+
+export const corQualidade = (q, cfg) =>
+  q == null ? 'var(--text3)' : q >= cfg.qualPremium ? 'var(--green)' : q >= cfg.qualMinima ? 'var(--amber)' : 'var(--red)'
+
 export const corPct = (p) => {
   if (p >= 100) return 'var(--green)'
   if (p >= 70) return 'var(--gold-light)'

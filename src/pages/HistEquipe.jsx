@@ -4,7 +4,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
-import { getHoje, fmtMoeda, fmtNum, pctMeta, avatarCor, getIniciais, exportCSV, isProducao } from '../lib/utils'
+import { getHoje, fmtMoeda, fmtNum, pctMeta, avatarCor, getIniciais, exportCSV, isProducao, getQuinzenaAtual, calcParceria, fmtMilheiros, corQualidade } from '../lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
@@ -13,11 +13,29 @@ const COLORS = ['#C9A227', '#3B82F6', '#28B485', '#8B5CF6', '#F59E0B', '#06B6D4'
 export default function HistEquipe() {
   const [periodo, setPeriodo] = useState('30')
   const { funcionarios } = useFuncionarios()
-  const { valorMil } = useConfig()
+  const cfg = useConfig()
+  const { valorMil } = cfg
   const hoje = getHoje()
   const ini  = format(subDays(new Date(), Number(periodo)), 'yyyy-MM-dd')
   const { registros, loading } = useRegistros({ dataInicio: ini, dataFim: hoje })
   const { cqRegistros } = useCQ({ dataInicio: ini, dataFim: hoje })
+
+  // Corrida da quinzena atual (Programa de Parceria): faixa e qualidade de cada
+  // parceiro pelo conferido — independe do período selecionado acima
+  const qz = getQuinzenaAtual(cfg.quinzenaD1, cfg.quinzenaD2)
+  const { cqRegistros: cqQz } = useCQ({ dataInicio: qz.inicio, dataFim: qz.fim })
+  const parceriaPorFunc = useMemo(() => {
+    const map = new Map()
+    funcionarios.filter(f => isProducao(f)).forEach(f => {
+      const cq = cqQz.filter(c => c.func_id === f.id)
+      const entregue = cq.reduce((s, c) => s + (c.entregue || 0), 0)
+      if (entregue > 0) {
+        const revisada = cq.reduce((s, c) => s + (c.revisada || 0), 0)
+        map.set(f.id, calcParceria({ entregue, revisada, modalidade: f.modalidade || 'cp', cfg }))
+      }
+    })
+    return map
+  }, [cqQz, funcionarios, cfg])
 
   const ativos = funcionarios.filter(f => f.situacao === 'ativo' && isProducao(f))
 
@@ -122,7 +140,16 @@ export default function HistEquipe() {
                 <div className="rank-info">
                   <div className="rank-name">{x.f.nome}</div>
                   <div className="pbar"><div className={`pfill ${x.pct >= 100 ? 'pf-green' : x.pct >= 70 ? 'pf-gold' : 'pf-amber'}`} style={{ width: `${Math.min(100, x.pct)}%` }} /></div>
-                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{x.dias} dias · Média {fmtNum(x.media)} un./dia</div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>
+                    {x.dias} dias · Média {fmtNum(x.media)} un./dia
+                    {(() => {
+                      const p = parceriaPorFunc.get(x.f.id)
+                      if (!p) return null
+                      return (
+                        <> · Quinzena: <strong style={{ color: 'var(--gold-light)' }}>{p.faixaEfetiva.nome}</strong>{p.travada ? ' ⚠' : ''} ({fmtMilheiros(p.milheiros)} mil · <span style={{ color: corQualidade(p.qualidade, cfg) }}>{p.qualidade?.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</span>)</>
+                      )
+                    })()}
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontFamily: 'Barlow Condensed,sans-serif', fontSize: 18, fontWeight: 800, color: 'var(--gold-light)' }}>{fmtNum(x.tot)}</div>

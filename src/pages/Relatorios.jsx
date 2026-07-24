@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useRegistros, useFuncionarios, useConfig } from '../lib/hooks'
-import { getHoje, getOntem, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, getSemana, getMes, getQuinzena, getQuinzenaAtual, exportCSV, exportXLSX, isProducao } from '../lib/utils'
+import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
+import { getHoje, getOntem, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, getSemana, getMes, getQuinzena, getQuinzenaAtual, exportCSV, exportXLSX, isProducao, calcParceria, fmtMilheiros, corQualidade } from '../lib/utils'
 import { format, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -218,7 +218,8 @@ function TabIndividual({ funcionarios, valorMil }) {
 }
 
 function TabFolha({ funcionarios, valorMil }) {
-  const { quinzenaD1, quinzenaD2 } = useConfig()
+  const cfg = useConfig()
+  const { quinzenaD1, quinzenaD2 } = cfg
   const _q0 = getQuinzenaAtual(quinzenaD1, quinzenaD2)
   const [inicio, setInicio] = useState(_q0.inicio)
   const [fim, setFim] = useState(_q0.fim)
@@ -229,25 +230,41 @@ function TabFolha({ funcionarios, valorMil }) {
     setFim(q.fim)
   }, [quinzenaD1, quinzenaD2])
   const { registros, loading } = useRegistros({ dataInicio: inicio, dataFim: fim })
+  const { cqRegistros } = useCQ({ dataInicio: inicio, dataFim: fim })
 
   const diasPeriodo = inicio && fim
     ? Math.round((new Date(fim + 'T12:00') - new Date(inicio + 'T12:00')) / 86400000) + 1
     : 15
   const diasUteisEst = Math.round(diasPeriodo * 5 / 7)
 
+  // Programa de Parceria: paga-se APENAS o APROVADO na conferência (revisada) pelo
+  // preço da faixa da quinzena, com trava de qualidade — mesma conta da MinhaProducao.
+  // O declarado sem conferência fica de fora ("aguardando"); a diferença
+  // declarado × aprovado (descarte + o que nunca chegou) é rastreada por parceiro.
   const porFunc = funcionarios.filter(f => f.situacao === 'ativo' && isProducao(f)).map(f => {
     const fr = registros.filter(r => r.func_id === f.id)
+    const cq = cqRegistros.filter(c => c.func_id === f.id)
     const totProd  = fr.reduce((s, r) => s + (r.quantidade || 0), 0)
-    const totAprov = fr.reduce((s, r) => s + ((r.aproveitado ?? r.quantidade) || 0), 0)
-    const valor    = fr.reduce((s, r) => s + Number(r.valor || 0), 0)
-    const dias     = new Set(fr.map(r => r.data)).size
-    const metaPer  = f.meta_diaria * diasUteisEst
-    const pct      = metaPer > 0 ? Math.round(totProd / metaPer * 100) : 0
-    return { f, totProd, totAprov, valor, dias, metaPer, pct }
-  }).filter(x => x.dias > 0).sort((a, b) => b.valor - a.valor)
+    const entregue = cq.reduce((s, c) => s + (c.entregue || 0), 0)
+    const revisada = cq.reduce((s, c) => s + (c.revisada || 0), 0)
+    const modalidade = f.modalidade || 'cp'
+    const p = calcParceria({ entregue, revisada, modalidade, cfg })
+    const dias = new Set(fr.map(r => r.data)).size
+    const diasCq = new Set(cq.map(c => c.data))
+    const aguardando = fr.filter(r => !diasCq.has(r.data)).reduce((s, r) => s + (r.quantidade || 0), 0)
+    const declConf = fr.filter(r => diasCq.has(r.data)).reduce((s, r) => s + (r.quantidade || 0), 0)
+    const dif = declConf - revisada
+    const ajuda = modalidade === 'cp' ? dias * cfg.ajudaCustoDia : 0
+    const metaPer = f.meta_diaria * diasUteisEst
+    const pct = metaPer > 0 ? Math.round(totProd / metaPer * 100) : 0
+    return { f, modalidade, totProd, entregue, revisada, declConf, dif, aguardando, dias, metaPer, pct, p, ajuda, total: p.valor + ajuda }
+  }).filter(x => x.dias > 0 || x.entregue > 0).sort((a, b) => b.total - a.total)
 
-  const totalValor   = porFunc.reduce((s, x) => s + x.valor, 0)
-  const totalProd    = porFunc.reduce((s, x) => s + x.totProd, 0)
+  const totalValor      = porFunc.reduce((s, x) => s + x.total, 0)
+  const totalProd       = porFunc.reduce((s, x) => s + x.totProd, 0)
+  const totalAprovado   = porFunc.reduce((s, x) => s + x.revisada, 0)
+  const totalDif        = porFunc.reduce((s, x) => s + x.dif, 0)
+  const totalAguardando = porFunc.reduce((s, x) => s + x.aguardando, 0)
   const labelPeriodo = inicio && fim ? `${fmtData(inicio)} a ${fmtData(fim)}` : '—'
 
   const aplicarQuinzena = (num) => {
@@ -257,11 +274,13 @@ function TabFolha({ funcionarios, valorMil }) {
   }
 
   const linhas = () => [
-    ['Funcionário', 'Dias Trabalhados', 'Total Produzido', 'Total Aproveitado', 'Meta Período', '% Meta', 'Valor a Receber (R$)'],
-    ...porFunc.map(({ f, totProd, totAprov, valor, dias, metaPer, pct }) => [
-      f.nome, dias, totProd, totAprov > 0 ? totAprov : '—', metaPer, pct + '%', valor.toFixed(2)
+    ['Funcionário', 'Modalidade', 'Dias c/ Entrega', 'Declarado (un.)', 'Entregue na Conferência (un.)', 'Aprovado (un.)', 'Dif. Declarado × Aprovado (un.)', 'Qualidade %', 'Faixa', 'Preço/Milheiro (R$)', 'Produção (R$)', 'Ajuda de Custo (R$)', 'Total a Receber (R$)'],
+    ...porFunc.map(({ f, modalidade, dias, totProd, entregue, revisada, dif, p, ajuda, total }) => [
+      f.nome, modalidade === 'externo' ? 'Externo' : 'CP Barretos', dias, totProd, entregue, revisada, dif,
+      p.qualidade == null ? '—' : p.qualidade.toFixed(1), p.faixaEfetiva.nome, p.preco,
+      p.valor.toFixed(2), ajuda.toFixed(2), total.toFixed(2),
     ]),
-    ['TOTAL', '—', totalProd, '—', '—', '—', totalValor.toFixed(2)],
+    ['TOTAL', '—', '—', totalProd, '—', totalAprovado, totalDif, '—', '—', '—', '—', '—', totalValor.toFixed(2)],
   ]
   const exportarCSV  = () => exportCSV(linhas(), `folha_${inicio}_${fim}.csv`)
   const exportarXLSX = () => exportXLSX([{ name: 'Folha de Pagamento', rows: linhas() }], `folha_${inicio}_${fim}.xlsx`)
@@ -295,10 +314,23 @@ function TabFolha({ funcionarios, valorMil }) {
               <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', fontFamily: 'Barlow Condensed,sans-serif' }}>{porFunc.length}</div>
             </div>
             <div>
-              <div style={{ fontSize: 10.5, color: 'var(--text3)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 1 }}>Produção Total</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--gold-light)', fontFamily: 'Barlow Condensed,sans-serif' }}>{fmtNum(totalProd)} un.</div>
+              <div style={{ fontSize: 10.5, color: 'var(--text3)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 1 }}>Aprovado (pago)</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--gold-light)', fontFamily: 'Barlow Condensed,sans-serif' }}>{fmtNum(totalAprovado)} un.</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10.5, color: 'var(--text3)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 1 }}>Declarado</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', fontFamily: 'Barlow Condensed,sans-serif' }}>{fmtNum(totalProd)} un.</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10.5, color: 'var(--text3)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 1 }}>Dif. Declarado × Aprovado</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: totalDif > 0 ? 'var(--red)' : 'var(--text)', fontFamily: 'Barlow Condensed,sans-serif' }}>{fmtNum(totalDif)} un.</div>
             </div>
           </div>
+          {totalAguardando > 0 && (
+            <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--amber)' }}>
+              ⏳ {fmtNum(totalAguardando)} un. declaradas ainda sem conferência — não entram no pagamento até serem conferidas. Confira antes de fechar a quinzena.
+            </div>
+          )}
         </div>
       )}
 
@@ -313,24 +345,52 @@ function TabFolha({ funcionarios, valorMil }) {
                     <th>#</th>
                     <th>Funcionário</th>
                     <th>Dias</th>
-                    <th>Produzido</th>
-                    <th>Aproveitado</th>
-                    <th>% Meta</th>
-                    <th style={{ color: 'var(--green)' }}>Valor a Receber</th>
+                    <th>Declarado</th>
+                    <th>Aprovado (pago)</th>
+                    <th>Diferença</th>
+                    <th>Qualidade</th>
+                    <th>Faixa · Preço/mil</th>
+                    <th>Produção</th>
+                    <th>Ajuda de Custo</th>
+                    <th style={{ color: 'var(--green)' }}>Total a Receber</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {porFunc.map(({ f, totProd, totAprov, valor, dias, pct }, i) => (
+                  {porFunc.map(({ f, modalidade, totProd, entregue, revisada, dif, aguardando, dias, p, ajuda, total }, i) => (
                     <tr key={f.id}>
                       <td style={{ fontFamily: 'Barlow Condensed,sans-serif', fontSize: 18, fontWeight: 800, color: 'var(--text3)' }}>{MEDALS[i] || i + 1}</td>
-                      <td><strong style={{ color: 'var(--text)' }}>{f.nome}</strong></td>
+                      <td>
+                        <strong style={{ color: 'var(--text)' }}>{f.nome}</strong>
+                        <div style={{ fontSize: 10.5, color: 'var(--text3)' }}>{modalidade === 'externo' ? '🏠 Externo' : '🏭 CP Barretos'}</div>
+                      </td>
                       <td>{dias}</td>
-                      <td>{fmtNum(totProd)} un.</td>
-                      <td style={{ color: totAprov > 0 ? 'var(--green)' : 'var(--text3)' }}>{totAprov > 0 ? fmtNum(totAprov) + ' un.' : '—'}</td>
-                      <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
+                      <td>
+                        {fmtNum(totProd)} un.
+                        {aguardando > 0 && <div style={{ fontSize: 10.5, color: 'var(--amber)' }}>⏳ {fmtNum(aguardando)} aguardam conferência</div>}
+                      </td>
+                      <td style={{ color: revisada > 0 ? 'var(--text)' : 'var(--text3)' }}>
+                        {revisada > 0 ? <strong>{fmtNum(revisada)} un.</strong> : '—'}
+                        {entregue > 0 && <div style={{ fontSize: 10.5, color: 'var(--text3)' }}>de {fmtNum(entregue)} entregues</div>}
+                      </td>
+                      <td title="Declarado (dias já conferidos) − aprovado: descarte + o que não chegou na conferência">
+                        {dif > 0 ? <strong style={{ color: 'var(--red)' }}>−{fmtNum(dif)} un.</strong>
+                          : dif < 0 ? <strong style={{ color: 'var(--amber)' }}>+{fmtNum(-dif)} un.</strong>
+                          : <span style={{ color: 'var(--text3)' }}>—</span>}
+                      </td>
+                      <td>
+                        {p.qualidade == null ? <span style={{ color: 'var(--text3)' }}>—</span>
+                          : <span style={{ color: corQualidade(p.qualidade, cfg), fontWeight: 700 }}>{p.qualidade.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</span>}
+                      </td>
+                      <td>
+                        <span style={{ color: 'var(--gold-light)', fontWeight: 700 }}>{p.faixaEfetiva.nome}</span>
+                        <span style={{ color: 'var(--text3)' }}> · {fmtMoeda(p.preco)}</span>
+                        {p.travada && <span title={`Pelo volume seria ${p.faixaVolume.nome} — qualidade abaixo do padrão travou o preço`} style={{ color: 'var(--amber)' }}> ⚠</span>}
+                      </td>
+                      <td style={{ color: 'var(--text2)' }} title={`${fmtMilheiros(p.milheiros)} milheiros × ${fmtMoeda(p.preco)}`}>{fmtMoeda(p.valor)}</td>
+                      <td style={{ color: ajuda > 0 ? 'var(--text2)' : 'var(--text3)' }} title={modalidade === 'cp' ? `${dias} dias × ${fmtMoeda(cfg.ajudaCustoDia)}` : 'Só parceiro CP recebe ajuda de custo'}>{ajuda > 0 ? fmtMoeda(ajuda) : '—'}</td>
                       <td>
                         <strong style={{ color: 'var(--green)', fontFamily: 'Barlow Condensed,sans-serif', fontSize: 17 }}>
-                          {fmtMoeda(valor)}
+                          {fmtMoeda(total)}
                         </strong>
                       </td>
                     </tr>
@@ -339,7 +399,11 @@ function TabFolha({ funcionarios, valorMil }) {
                     <td />
                     <td><strong style={{ color: 'var(--text)' }}>TOTAL</strong></td>
                     <td>—</td>
-                    <td><strong style={{ color: 'var(--gold-light)' }}>{fmtNum(totalProd)} un.</strong></td>
+                    <td><strong style={{ color: 'var(--text)' }}>{fmtNum(totalProd)} un.</strong></td>
+                    <td><strong style={{ color: 'var(--gold-light)' }}>{fmtNum(totalAprovado)} un.</strong></td>
+                    <td>{totalDif > 0 ? <strong style={{ color: 'var(--red)' }}>−{fmtNum(totalDif)} un.</strong> : '—'}</td>
+                    <td>—</td>
+                    <td>—</td>
                     <td>—</td>
                     <td>—</td>
                     <td><strong style={{ color: 'var(--green)', fontFamily: 'Barlow Condensed,sans-serif', fontSize: 17 }}>{fmtMoeda(totalValor)}</strong></td>

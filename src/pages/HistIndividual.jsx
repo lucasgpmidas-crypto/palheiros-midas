@@ -25,10 +25,14 @@ export default function HistIndividual() {
   const f = funcionarios.find(x => x.id === Number(funcId))
   const ativos = funcionarios.filter(x => x.situacao === 'ativo' && isProducao(x))
 
-  // Perda real vem da revisão da finalização (controle_qualidade), não do campo
-  // "aproveitado" de registros_producao — que ninguém preenche nesse fluxo.
+  // Perda e aprovado vêm da revisão da finalização (controle_qualidade), não dos
+  // campos de registros_producao — a conferência é a fonte oficial.
   const perdaPorData = new Map()
-  cqRegistros.forEach(c => perdaPorData.set(c.data, (perdaPorData.get(c.data) || 0) + (c.perda || 0)))
+  const aprovadoPorData = new Map()
+  cqRegistros.forEach(c => {
+    perdaPorData.set(c.data, (perdaPorData.get(c.data) || 0) + (c.perda || 0))
+    aprovadoPorData.set(c.data, (aprovadoPorData.get(c.data) || 0) + (c.revisada || 0))
+  })
 
   const total     = registros.reduce((s, r) => s + r.quantidade, 0)
   const valor     = registros.reduce((s, r) => s + Number(r.valor || 0), 0)
@@ -36,8 +40,10 @@ export default function HistIndividual() {
   const melhor    = registros.reduce((mx, r) => r.quantidade > mx ? r.quantidade : mx, 0)
   const diasMeta  = f ? registros.filter(r => r.quantidade >= f.meta_diaria).length : 0
   const totalPerd = [...perdaPorData.values()].reduce((s, p) => s + p, 0)
-  const regsComTaxa = registros.filter(r => r.taxa != null)
-  const taxaMedia = regsComTaxa.length ? Math.round(regsComTaxa.reduce((s, r) => s + Number(r.taxa), 0) / regsComTaxa.length) : null
+  // Rastreio declarado × aprovado (só dias já conferidos): descarte + o que não chegou
+  const totalAprov = [...aprovadoPorData.values()].reduce((s, v) => s + v, 0)
+  const declaradoConf = registros.filter(r => aprovadoPorData.has(r.data)).reduce((s, r) => s + r.quantidade, 0)
+  const difTotal = declaradoConf - totalAprov
 
   // Gráfico
   const allDays = Array.from({ length: Number(periodo) }, (_, i) =>
@@ -49,11 +55,12 @@ export default function HistIndividual() {
 
   const exportar = () => {
     if (!f) return
-    exportCSV([['Data', 'Dia', 'Produzido', 'Aproveitado', 'Perda (conferência)', 'Taxa', 'Valor', '% Meta', 'Obs.'],
+    exportCSV([['Data', 'Dia', 'Declarado', 'Aprovado (conferência)', 'Diferença', 'Perda (conferência)', 'Valor', '% Meta', 'Obs.'],
       ...registros.map(r => {
         const pct = pctMeta(r.quantidade, f.meta_diaria)
         const perda = perdaPorData.get(r.data)
-        return [fmtData(r.data), new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long' }), r.quantidade, r.aproveitado ?? '—', perda ?? '—', r.taxa != null ? r.taxa + '%' : '—', `R$${Number(r.valor).toFixed(2)}`, pct + '%', r.obs || '']
+        const aprov = aprovadoPorData.get(r.data)
+        return [fmtData(r.data), new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long' }), r.quantidade, aprov ?? '—', aprov != null ? r.quantidade - aprov : '—', perda ?? '—', `R$${Number(r.valor).toFixed(2)}`, pct + '%', r.obs || '']
       })], `individual_${f.nome.replace(/\s+/g, '_')}_${periodo}d.csv`)
   }
 
@@ -93,7 +100,7 @@ export default function HistIndividual() {
                 { cls: 'sc-blue',   sv: 'sv-blue',   label: 'Média/Dia', val: fmtNum(media) + ' un.' },
                 { cls: 'sc-amber',  sv: 'sv-amber',  label: 'Melhor Dia', val: fmtNum(melhor) + ' un.' },
                 { cls: 'sc-red',    sv: 'sv-red',    label: 'Perda Total (conferência)', val: fmtNum(totalPerd) + ' un.' },
-                { cls: 'sc-purple', sv: '',           label: 'Taxa Média', val: taxaMedia != null ? taxaMedia + '%' : '—', cor: 'var(--purple)' },
+                { cls: 'sc-purple', sv: '',           label: 'Declarado × Aprovado', val: difTotal !== 0 ? (difTotal > 0 ? '−' : '+') + fmtNum(Math.abs(difTotal)) + ' un.' : '0 un.', cor: difTotal > 0 ? 'var(--red)' : 'var(--purple)' },
               ].map(x => (
                 <div key={x.label} className={`stat-card ${x.cls}`}>
                   <div className="stat-label">{x.label}</div>
@@ -145,19 +152,26 @@ export default function HistIndividual() {
               : registros.length === 0
                 ? <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Sem registros no período</div></div>
                 : <div className="table-wrap"><table>
-                    <thead><tr><th>Data</th><th>Dia</th><th>Produzido</th><th>Aproveitado</th><th>Perda (conferência)</th><th>Taxa</th><th>Valor</th><th>% Meta</th><th>vs Média</th><th>Obs.</th></tr></thead>
+                    <thead><tr><th>Data</th><th>Dia</th><th>Declarado</th><th>Aprovado (conferência)</th><th>Diferença</th><th>Perda (conferência)</th><th>Valor</th><th>% Meta</th><th>vs Média</th><th>Obs.</th></tr></thead>
                     <tbody>{registros.map(r => {
                       const pct = f ? pctMeta(r.quantidade, f.meta_diaria) : 0
                       const diff = r.quantidade - media
                       const perda = perdaPorData.get(r.data)
+                      const aprov = aprovadoPorData.get(r.data)
+                      const difR = aprov != null ? r.quantidade - aprov : null
                       return (
                         <tr key={r.id}>
                           <td>{fmtData(r.data)}</td>
                           <td style={{ color: 'var(--text3)' }}>{new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short' })}</td>
                           <td><strong style={{ color: 'var(--text)' }}>{fmtNum(r.quantidade)} un.</strong></td>
-                          <td style={{ color: r.aproveitado != null ? 'var(--green)' : 'var(--text3)' }}>{r.aproveitado != null ? fmtNum(r.aproveitado) + ' un.' : '—'}</td>
+                          <td style={{ color: aprov != null ? 'var(--green)' : 'var(--text3)' }}>{aprov != null ? fmtNum(aprov) + ' un.' : '⏳ aguardando'}</td>
+                          <td title="Declarado − aprovado na conferência: descarte + o que não chegou">
+                            {difR == null ? <span style={{ color: 'var(--text3)' }}>—</span>
+                              : difR > 0 ? <strong style={{ color: 'var(--red)' }}>−{fmtNum(difR)} un.</strong>
+                              : difR < 0 ? <strong style={{ color: 'var(--amber)' }}>+{fmtNum(-difR)} un.</strong>
+                              : <span style={{ color: 'var(--green)', fontWeight: 700 }}>✓ 0</span>}
+                          </td>
                           <td style={{ color: perda > 0 ? 'var(--red)' : 'var(--text3)' }}>{perda != null ? fmtNum(perda) + ' un.' : '—'}</td>
-                          <td><span style={{ fontWeight: 700, color: r.taxa != null ? (r.taxa >= 90 ? 'var(--green)' : r.taxa >= 70 ? 'var(--amber)' : 'var(--red)') : 'var(--text3)' }}>{r.taxa != null ? r.taxa + '%' : '—'}</span></td>
                           <td style={{ color: 'var(--green)' }}>{fmtMoeda(Number(r.valor))}</td>
                           <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
                           <td style={{ color: diff >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{(diff >= 0 ? '+' : '') + fmtNum(diff)}</td>
