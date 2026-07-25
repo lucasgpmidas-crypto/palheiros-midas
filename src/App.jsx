@@ -21,6 +21,7 @@ const Configuracoes  = lazy(() => import('./pages/Configuracoes'))
 const Conferencia    = lazy(() => import('./pages/Conferencia'))
 const Estoque        = lazy(() => import('./pages/Estoque'))
 const Fechamento     = lazy(() => import('./pages/Fechamento'))
+const Premios        = lazy(() => import('./pages/Premios'))
 
 // Página inicial do funcionário conforme o setor
 const funcHome = (funcSession) => funcSession?.setor === 'finalizacao' ? '/cq' : '/minha-producao'
@@ -61,6 +62,7 @@ function AppRoutes() {
         <Route path="conferencia"   element={<ProtectedRoute adminOnly><Conferencia /></ProtectedRoute>} />
         <Route path="estoque"       element={<ProtectedRoute adminOnly><Estoque /></ProtectedRoute>} />
         <Route path="fechamento"    element={<ProtectedRoute adminOnly><Fechamento /></ProtectedRoute>} />
+        <Route path="premios"       element={<ProtectedRoute adminOnly><Premios /></ProtectedRoute>} />
         <Route path="relatorios"    element={<ProtectedRoute adminOnly><Relatorios /></ProtectedRoute>} />
         <Route path="configuracoes" element={<ProtectedRoute adminOnly><Configuracoes /></ProtectedRoute>} />
 

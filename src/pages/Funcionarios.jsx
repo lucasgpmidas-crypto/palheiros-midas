@@ -4,7 +4,7 @@ import { fmtData, fmtNum, getHoje } from '../lib/utils'
 import Modal from '../components/Modal'
 import toast from 'react-hot-toast'
 
-const FORM0 = { nome: '', entrada: getHoje(), meta_diaria: 3000, situacao: 'ativo', setor: 'producao', modalidade: 'cp', pin: '', obs: '' }
+const FORM0 = { nome: '', entrada: getHoje(), meta_diaria: 3000, situacao: 'ativo', setor: 'producao', modalidade: 'cp', parceria_desde: '', padrinho_id: '', pin: '', obs: '' }
 
 export default function Funcionarios() {
   const { funcionarios, loading, salvar } = useFuncionarios()
@@ -20,14 +20,21 @@ export default function Funcionarios() {
   const abrirNovo = () => { setEditId(null); setForm(FORM0); setModal(true) }
   const abrirEditar = (f) => {
     setEditId(f.id)
-    setForm({ nome: f.nome, entrada: f.entrada, meta_diaria: f.meta_diaria, situacao: f.situacao, setor: f.setor || 'producao', modalidade: f.modalidade || 'cp', pin: '', obs: f.obs || '' })
+    setForm({ nome: f.nome, entrada: f.entrada, meta_diaria: f.meta_diaria, situacao: f.situacao, setor: f.setor || 'producao', modalidade: f.modalidade || 'cp', parceria_desde: f.parceria_desde || '', padrinho_id: f.padrinho_id || '', pin: '', obs: f.obs || '' })
     setModal(true)
   }
 
   const handleSalvar = async () => {
     if (!form.nome.trim()) { toast.error('Informe o nome'); return }
     setSaving(true)
-    const payload = { nome: form.nome.trim(), entrada: form.entrada, meta_diaria: Math.max(1, Number(form.meta_diaria) || 3000), situacao: form.situacao, setor: form.setor, modalidade: form.modalidade, obs: form.obs || null }
+    const payload = {
+      nome: form.nome.trim(), entrada: form.entrada, meta_diaria: Math.max(1, Number(form.meta_diaria) || 3000),
+      situacao: form.situacao, setor: form.setor, modalidade: form.modalidade,
+      // Marco zero das 6 quinzenas de qualificação e do prêmio de padrinho
+      parceria_desde: form.parceria_desde || null,
+      padrinho_id: form.padrinho_id ? Number(form.padrinho_id) : null,
+      obs: form.obs || null,
+    }
     if (form.pin) payload.pin = form.pin
     const ok = await salvar(payload, editId)
     if (ok) setModal(false)
@@ -72,7 +79,10 @@ export default function Funcionarios() {
                         <td>{fmtData(f.entrada)}</td>
                         <td><span className={`badge ${(f.setor || 'producao') === 'finalizacao' ? 'b-blue' : 'b-gold'}`}>{(f.setor || 'producao') === 'finalizacao' ? '📦 Finalização' : '🌾 Produção'}</span></td>
                         <td>{(f.setor || 'producao') === 'producao'
-                          ? <span className={`badge ${(f.modalidade || 'cp') === 'externo' ? 'b-blue' : 'b-gold'}`}>{(f.modalidade || 'cp') === 'externo' ? '🏠 Externo' : '🏭 CP Barretos'}</span>
+                          ? <>
+                              <span className={`badge ${(f.modalidade || 'cp') === 'externo' ? 'b-blue' : 'b-gold'}`}>{(f.modalidade || 'cp') === 'externo' ? '🏠 Externo' : '🏭 CP Barretos'}</span>
+                              {f.padrinho_id && <div style={{ fontSize: 10.5, color: 'var(--text3)', marginTop: 3 }}>🤝 padrinho: {funcionarios.find(x => x.id === f.padrinho_id)?.nome || '—'}</div>}
+                            </>
                           : <span style={{ color: 'var(--text3)' }}>—</span>}</td>
                         <td><span style={{ color: 'var(--gold-light)', fontWeight: 700 }}>{fmtNum(f.meta_diaria)} un.</span></td>
                         <td><span className={`badge ${f.pin ? 'b-green' : 'b-red'}`}>{f.pin ? '✓ Configurado' : 'Sem PIN'}</span></td>
@@ -106,12 +116,25 @@ export default function Funcionarios() {
               </select>
             </div>
             {form.setor === 'producao' && (
-              <div className="fg"><label>Modalidade (parceria)</label>
-                <select value={form.modalidade} onChange={e => setF('modalidade', e.target.value)}>
-                  <option value="cp">🏭 CP Barretos (faixa premium + ajuda de custo)</option>
-                  <option value="externo">🏠 Externo (produz em casa)</option>
-                </select>
-              </div>
+              <>
+                <div className="fg"><label>Modalidade (parceria)</label>
+                  <select value={form.modalidade} onChange={e => setF('modalidade', e.target.value)}>
+                    <option value="cp">🏭 CP Barretos (faixa premium + ajuda de custo)</option>
+                    <option value="externo">🏠 Externo (produz em casa)</option>
+                  </select>
+                </div>
+                <div className="fg"><label>Início na parceria (prêmio de qualificação)</label>
+                  <input type="date" value={form.parceria_desde} onChange={e => setF('parceria_desde', e.target.value)} />
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Marco das 6 quinzenas de qualificação. Preencha só para parceiro <strong>novo</strong> no programa — em branco, ele não concorre ao prêmio de qualificação.</div>
+                </div>
+                <div className="fg"><label>Padrinho (recebe prêmio se o afilhado qualificar)</label>
+                  <select value={form.padrinho_id} onChange={e => setF('padrinho_id', e.target.value)}>
+                    <option value="">— sem padrinho —</option>
+                    {funcionarios.filter(x => x.id !== editId && (x.setor || 'producao') === 'producao')
+                      .map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+                  </select>
+                </div>
+              </>
             )}
           </div>
           <div className="fg" style={{ background: 'rgba(201,162,39,.06)', border: '1px solid rgba(201,162,39,.2)', borderRadius: 'var(--rs)', padding: 12 }}>

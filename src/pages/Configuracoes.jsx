@@ -17,6 +17,27 @@ const PC_CAMPOS = [
   ['ajuda_custo_dia', 'ajudaCustoDia', 'Ajuda de custo CP (R$/dia com entrega)'],
 ]
 
+// Prêmios: qualificação (6 quinzenas em 3 etapas) + anuais
+const PM_CAMPOS = [
+  ['qualif_vol1',         'qualifVol1',         'Qualif. 1ª e 2ª quinzena — volume (milheiros)'],
+  ['qualif_qual1',        'qualifQual1',        'Qualif. 1ª e 2ª quinzena — qualidade (%)'],
+  ['qualif_vol2',         'qualifVol2',         'Qualif. 3ª e 4ª quinzena — volume (milheiros)'],
+  ['qualif_qual2',        'qualifQual2',        'Qualif. 3ª e 4ª quinzena — qualidade (%)'],
+  ['qualif_vol3',         'qualifVol3',         'Qualif. 5ª e 6ª quinzena — volume (milheiros)'],
+  ['qualif_qual3',        'qualifQual3',        'Qualif. 5ª e 6ª quinzena — qualidade (%)'],
+  ['premio_qualificacao', 'premioQualificacao', 'Prêmio de Qualificação (R$)'],
+  ['premio_padrinho',     'premioPadrinho',     'Prêmio de Padrinho (R$)'],
+  ['premio_prod_v1',      'premioProdV1',       'Anual 1ª faixa — volume no ano (milheiros)'],
+  ['premio_prod_p1',      'premioProdP1',       'Anual 1ª faixa — prêmio (R$)'],
+  ['premio_prod_v2',      'premioProdV2',       'Anual 2ª faixa — volume no ano (milheiros)'],
+  ['premio_prod_p2',      'premioProdP2',       'Anual 2ª faixa — prêmio (R$)'],
+  ['premio_prod_v3',      'premioProdV3',       'Anual 3ª faixa — volume no ano (milheiros)'],
+  ['premio_prod_p3',      'premioProdP3',       'Anual 3ª faixa — prêmio (R$)'],
+  ['premio_fid_min',      'premioFidMin',       'Fidelidade — volume mínimo no ano (milheiros)'],
+  ['premio_qual_anual',   'premioQualAnual',    'Prêmio de Qualidade Anual (R$)'],
+  ['premio_qual_min',     'premioQualMin',      'Qualidade Anual — volume mínimo (milheiros)'],
+]
+
 export default function Configuracoes() {
   const cfg = useConfig()
   const { valorMil, uniDisplay, uniMaco, tolerancia, quinzenaD1, quinzenaD2, diasSemRevisao, estoqueMinimo, salvarValorMil, salvarConfig } = cfg
@@ -30,6 +51,8 @@ export default function Configuracoes() {
   const [savingAl, setSavingAl] = useState(false)
   const [pc, setPc] = useState({})
   const [savingPc, setSavingPc] = useState(false)
+  const [pm, setPm] = useState({})
+  const [savingPm, setSavingPm] = useState(false)
 
   const handleSalvar = async () => {
     const v = parseFloat(novoValor)
@@ -93,6 +116,18 @@ export default function Configuracoes() {
     setPc({})
     setSavingPc(false)
     toast.success('Programa de Parceria atualizado! Vale a partir de agora — comunique os parceiros com antecedência.')
+  }
+
+  const handleSalvarPm = async () => {
+    const itens = PM_CAMPOS.filter(([ch]) => pm[ch] !== undefined && pm[ch] !== '')
+      .map(([ch]) => [ch, parseFloat(pm[ch])])
+    if (!itens.length) { toast.error('Altere ao menos um campo'); return }
+    if (itens.some(([, v]) => isNaN(v) || v < 0)) { toast.error('Use apenas números válidos'); return }
+    setSavingPm(true)
+    for (const [chave, v] of itens) await salvarConfig(chave, v)
+    setPm({})
+    setSavingPm(false)
+    toast.success('Prêmios do programa atualizados!')
   }
 
   const pvD1 = parseInt(qz.d1) || quinzenaD1
@@ -203,6 +238,28 @@ export default function Configuracoes() {
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>
             Faixas atuais: Base até {cfg.faixaMinInter - 1} mil · Intermediária {cfg.faixaMinInter}–{cfg.faixaMinPrem - 1} mil · Premium {cfg.faixaMinPrem}+ mil
           </span>
+        </div>
+      </div>
+
+      <div className="card mb16">
+        <div className="card-title">🏅 Prêmios do Programa</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 14 }}>
+          Qualificação: o parceiro novo precisa cumprir volume <strong>e</strong> qualidade nas 6 primeiras quinzenas — falhou uma, não recebe.
+          Prêmios anuais são apurados pelo aprovado no ano e concedidos na tela <strong>Prêmios</strong>; a fidelidade vale o faturamento do ano ÷ 24 × 2.
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
+          {PM_CAMPOS.map(([chave, key, label]) => (
+            <div className="fg" key={chave} style={{ margin: 0 }}>
+              <label>{label} (atual: {cfg[key]})</label>
+              <input type="number" min="0" step="1" placeholder={String(cfg[key])} value={pm[chave] ?? ''}
+                onChange={e => setPm(v => ({ ...v, [chave]: e.target.value }))} />
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <button className="btn btn-primary" onClick={handleSalvarPm} disabled={savingPm || !Object.values(pm).some(v => v !== '')}>
+            {savingPm ? 'Salvando...' : 'Salvar Prêmios'}
+          </button>
         </div>
       </div>
 
