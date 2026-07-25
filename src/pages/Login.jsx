@@ -1,13 +1,28 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
+import { getIniciais, avatarCor } from '../lib/utils'
+
+// Quem entrou por último neste aparelho (só id/nome/setor — PIN nunca é salvo)
+const lerLembrado = () => {
+  try { return JSON.parse(localStorage.getItem('pm_func_lembrado')) || null } catch { return null }
+}
+
+const SETORES = [
+  ['producao', '🌾 Produção'],
+  ['finalizacao', '📦 Finalização'],
+]
 
 export default function Login() {
   const { entrarAdmin, entrarFuncionario } = useAuth()
-  const [modo, setModo] = useState('admin')
+  const lembrado = useMemo(lerLembrado, [])
+  // Aparelho que já tem dono abre no modo funcionário, direto no PIN
+  const [modo, setModo] = useState(lembrado ? 'func' : 'admin')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
-  const [funcId, setFuncId] = useState('')
+  const [funcId, setFuncId] = useState(lembrado ? String(lembrado.id) : '')
+  const [escolhido, setEscolhido] = useState(lembrado || null)
+  const [busca, setBusca] = useState('')
   const [pinDigits, setPinDigits] = useState(['', '', '', ''])
   const [loading, setLoading] = useState(false)
   const [funcionarios, setFuncionarios] = useState([])
@@ -43,9 +58,31 @@ export default function Login() {
   }
 
   useEffect(() => {
-    supabase.from('funcionarios').select('id,nome,situacao').eq('situacao','ativo').order('nome')
+    supabase.from('funcionarios').select('id,nome,situacao,setor').eq('situacao','ativo').order('nome')
       .then(({ data }) => setFuncionarios(data || []))
   }, [])
+
+  // Selecionar alguém leva direto ao PIN, com o cursor já no primeiro dígito
+  const selecionar = (f) => {
+    setFuncId(String(f.id))
+    setEscolhido(f)
+    setErro('')
+    setPinDigits(['', '', '', ''])
+    setTimeout(() => pinR0.current?.focus(), 50)
+  }
+
+  const trocarPessoa = () => {
+    setFuncId('')
+    setEscolhido(null)
+    setBusca('')
+    setPinDigits(['', '', '', ''])
+    setErro('')
+    try { localStorage.removeItem('pm_func_lembrado') } catch {}
+  }
+
+  const listaFiltrada = funcionarios.filter(f =>
+    f.nome.toLowerCase().includes(busca.trim().toLowerCase())
+  )
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -107,13 +144,59 @@ export default function Login() {
             </>
           ) : (
             <>
-              <div className="fg" style={{ textAlign:'left' }}>
-                <label>Selecione seu nome</label>
-                <select value={funcId} onChange={e=>setFuncId(e.target.value)}>
-                  <option value="">Selecionar...</option>
-                  {funcionarios.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                </select>
-              </div>
+              {escolhido ? (
+                /* Aparelho com dono: nome em cima, PIN embaixo — sem lista */
+                <div style={{ display:'flex', alignItems:'center', gap:12, background:'var(--bg3)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 14px', marginBottom:16, textAlign:'left' }}>
+                  <div style={{ width:42, height:42, borderRadius:'50%', background:avatarCor(escolhido.id), display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, fontWeight:800, color:'#0F1420', flexShrink:0 }}>
+                    {getIniciais(escolhido.nome)}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:10.5, color:'var(--text3)', textTransform:'uppercase', letterSpacing:1 }}>Entrando como</div>
+                    <div style={{ fontSize:16, fontWeight:700, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{escolhido.nome}</div>
+                  </div>
+                  <button type="button" onClick={trocarPessoa}
+                    style={{ background:'transparent', border:'none', color:'var(--blue)', fontSize:12, fontWeight:600, cursor:'pointer', padding:'6px 4px', flexShrink:0 }}>
+                    não sou eu
+                  </button>
+                </div>
+              ) : (
+                /* Primeira vez neste aparelho: escolher quem é, com busca e por setor */
+                <div style={{ textAlign:'left', marginBottom:8 }}>
+                  <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:8 }}>Quem está entrando?</label>
+                  {funcionarios.length > 6 && (
+                    <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="🔍 Buscar seu nome..."
+                      style={{ marginBottom:10 }} autoFocus />
+                  )}
+                  <div style={{ maxHeight:340, overflowY:'auto', display:'grid', gap:6 }}>
+                    {SETORES.map(([chave, titulo]) => {
+                      const doSetor = listaFiltrada.filter(f => (f.setor || 'producao') === chave)
+                      if (!doSetor.length) return null
+                      return (
+                        <div key={chave}>
+                          <div style={{ fontSize:10, color:'var(--text3)', textTransform:'uppercase', letterSpacing:1.2, margin:'8px 0 6px' }}>{titulo}</div>
+                          <div style={{ display:'grid', gap:6 }}>
+                            {doSetor.map(f => (
+                              <button key={f.id} type="button" onClick={() => selecionar(f)}
+                                style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'10px 12px', borderRadius:10, background:'var(--bg3)', border:'1px solid var(--border)', color:'var(--text)', fontSize:14.5, fontWeight:600, cursor:'pointer', textAlign:'left' }}>
+                                <span style={{ width:32, height:32, borderRadius:'50%', background:avatarCor(f.id), display:'flex', alignItems:'center', justifyContent:'center', fontSize:11.5, fontWeight:800, color:'#0F1420', flexShrink:0 }}>
+                                  {getIniciais(f.nome)}
+                                </span>
+                                {f.nome}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {listaFiltrada.length === 0 && (
+                      <div style={{ fontSize:13, color:'var(--text3)', textAlign:'center', padding:'14px 0' }}>
+                        {funcionarios.length ? 'Nenhum nome encontrado' : 'Carregando...'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {escolhido && (
               <div className="fg">
                 <label style={{ display:'block', textAlign:'center', marginBottom:10 }}>PIN (4 dígitos)</label>
                 <div style={{ display:'flex', gap:10, justifyContent:'center' }}>
@@ -141,18 +224,25 @@ export default function Login() {
                   ))}
                 </div>
               </div>
+              )}
             </>
           )}
 
           {erro && <div style={{ background:'rgba(232,64,64,.1)', border:'1px solid rgba(232,64,64,.3)', borderRadius:'var(--rs)', padding:'10px 14px', fontSize:12.5, color:'var(--red)', marginBottom:12 }}>{erro}</div>}
 
-          <button type="submit" disabled={loading} style={{ width:'100%', marginTop:4, background:'linear-gradient(135deg,var(--gold-dark),var(--gold))', border:'none', borderRadius:'var(--rs)', padding:13, color:'#0D1018', fontSize:15, fontWeight:800, fontFamily:'Barlow Condensed,sans-serif', letterSpacing:1.5, cursor:loading?'not-allowed':'pointer', opacity:loading?.7:1 }}>
-            {loading ? 'ENTRANDO...' : 'ENTRAR →'}
-          </button>
+          {(modo === 'admin' || escolhido) && (
+            <button type="submit" disabled={loading} style={{ width:'100%', marginTop:4, background:'linear-gradient(135deg,var(--gold-dark),var(--gold))', border:'none', borderRadius:'var(--rs)', padding:13, color:'#0D1018', fontSize:15, fontWeight:800, fontFamily:'Barlow Condensed,sans-serif', letterSpacing:1.5, cursor:loading?'not-allowed':'pointer', opacity:loading?.7:1 }}>
+              {loading ? 'ENTRANDO...' : 'ENTRAR →'}
+            </button>
+          )}
         </form>
 
         <div style={{ fontSize:11, color:'var(--text3)', marginTop:16 }}>
-          {modo === 'admin' ? 'Email e senha configurados no Supabase' : 'PIN configurado pelo administrador'}
+          {modo === 'admin'
+            ? 'Email e senha configurados no Supabase'
+            : escolhido
+              ? 'Só o seu nome fica salvo neste aparelho — o PIN, nunca'
+              : 'PIN configurado pelo administrador'}
         </div>
       </div>
     </div>
