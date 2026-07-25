@@ -10,7 +10,15 @@ export function useFuncionarios() {
 
   const fetch = useCallback(async () => {
     setLoading(true)
-    const { data: rows } = await supabase.from('funcionarios').select('*').order('nome')
+    // Colunas explícitas de propósito: o PIN não pode trafegar para o navegador, e a
+    // chave anon não tem mais select nele (migracao_pin_protegido.sql). Um `select('*')`
+    // aqui pediria a coluna pin e levaria 401, derrubando o app do funcionário.
+    // `pin_definido` é derivada no banco: diz se há PIN, nunca qual é.
+    // Coluna nova em funcionarios? Incluir aqui E no grant da migração.
+    const { data: rows } = await supabase
+      .from('funcionarios')
+      .select('id, nome, entrada, meta_diaria, situacao, obs, created_at, setor, modalidade, parceria_desde, padrinho_id, pin_definido')
+      .order('nome')
     setData(rows || [])
     setLoading(false)
   }, [])

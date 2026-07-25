@@ -85,7 +85,7 @@ export default function Funcionarios() {
                             </>
                           : <span style={{ color: 'var(--text3)' }}>—</span>}</td>
                         <td><span style={{ color: 'var(--gold-light)', fontWeight: 700 }}>{fmtNum(f.meta_diaria)} un.</span></td>
-                        <td><span className={`badge ${f.pin ? 'b-green' : 'b-red'}`}>{f.pin ? '✓ Configurado' : 'Sem PIN'}</span></td>
+                        <td><span className={`badge ${f.pin_definido ? 'b-green' : 'b-red'}`}>{f.pin_definido ? '✓ Configurado' : 'Sem PIN'}</span></td>
                         <td><span className={`badge ${f.situacao === 'ativo' ? 'b-green' : 'b-red'}`}>{f.situacao}</span></td>
                         <td style={{ color: 'var(--text3)', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.obs || '—'}</td>
                         <td><button className="btn btn-secondary btn-sm" onClick={() => abrirEditar(f)}>✏️ Editar</button></td>

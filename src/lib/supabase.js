@@ -31,31 +31,16 @@ export async function loginAdmin(email, senha) {
 }
 
 export async function loginFuncionario(funcId, pin) {
-  // Validação segura: o PIN é conferido dentro do banco, sem trafegar para o navegador
+  // Único caminho de login: o PIN é conferido dentro do banco (RPC security definer)
+  // e nunca trafega para o navegador. O fallback que lia a coluna `pin` direto da
+  // tabela foi removido junto com migracao_pin_protegido.sql — a chave anon não tem
+  // mais select nessa coluna, então ele só produziria erro e era o próprio vazamento.
   const { data, error } = await supabase.rpc('login_funcionario', { p_func_id: funcId, p_pin: String(pin) })
-  if (!error) {
-    const f = Array.isArray(data) ? data[0] : data
-    if (!f) return { ok: false, msg: 'PIN incorreto ou acesso não liberado' }
-    return { ok: true, funcionario: { id: f.id, nome: f.nome, setor: f.setor || 'producao' } }
-  }
+  if (error) return { ok: false, msg: 'Erro ao validar PIN. Tente novamente.' }
 
-  // Só cai no método antigo (inseguro) se a função realmente não existir no banco ainda
-  // (migracao_login_seguro.sql não rodada). Qualquer outro erro (rede, permissão, etc.)
-  // deve falhar aqui, e não reabrir o vazamento de PIN que essa migração corrige.
-  const rpcAusente = error.code === 'PGRST202' || /function .*login_funcionario.* does not exist/i.test(error.message || '')
-  if (!rpcAusente) return { ok: false, msg: 'Erro ao validar PIN. Tente novamente.' }
-
-  const { data: d, error: e } = await supabase
-    .from('funcionarios')
-    .select('id, nome, pin, situacao, setor')
-    .eq('id', funcId)
-    .single()
-
-  if (e || !d) return { ok: false, msg: 'Funcionário não encontrado' }
-  if (d.situacao !== 'ativo') return { ok: false, msg: 'Acesso não liberado' }
-  if (!d.pin) return { ok: false, msg: 'PIN não configurado. Fale com o administrador.' }
-  if (String(d.pin) !== String(pin)) return { ok: false, msg: 'PIN incorreto' }
-  return { ok: true, funcionario: { id: d.id, nome: d.nome, setor: d.setor || 'producao' } }
+  const f = Array.isArray(data) ? data[0] : data
+  if (!f) return { ok: false, msg: 'PIN incorreto ou acesso não liberado' }
+  return { ok: true, funcionario: { id: f.id, nome: f.nome, setor: f.setor || 'producao' } }
 }
 
 export async function logout() {
