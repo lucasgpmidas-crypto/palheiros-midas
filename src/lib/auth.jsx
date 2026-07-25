@@ -42,6 +42,10 @@ export function AuthProvider({ children }) {
     if (result.ok) {
       setFuncSession(result.funcionario)
       sessionStorage.setItem('pm_func', JSON.stringify(result.funcionario))
+      // Quem é fica gravado no aparelho (nunca o PIN): como cada um usa o próprio
+      // celular, a tela de login abre direto no teclado do PIN em vez da lista de
+      // nomes. Trocar de pessoa é o "não sou eu" da tela de login.
+      try { localStorage.setItem('pm_func_lembrado', JSON.stringify(result.funcionario)) } catch {}
     }
     return result
   }
