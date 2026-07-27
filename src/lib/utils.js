@@ -53,10 +53,11 @@ export const statusConferencia = ({ temCQ, pendenteEmbalagem, base, perda, empac
 }
 
 // ── Programa de Parceria (quinzenal) ─────────────────────────────────────────
-// Paga-se e pontua-se APENAS o APROVADO na conferência (revisada): cigarro
-// reprovado não é pago, e produção declarada que nunca chegou/nunca existiu
-// também não — o aprovado é o único número contado fisicamente. O volume
-// aprovado da quinzena define a faixa, que vale retroativamente para toda ela.
+// Paga-se o ENTREGUE na conferência: tudo o que o parceiro levou e foi contado
+// fisicamente na revisão, inclusive o que foi descartado ali. O descarte não tira
+// dinheiro dele — quem pune descarte é a trava de qualidade, derrubando a faixa.
+// O que NÃO é pago é o faltante: o que ele declarou e nunca chegou na conferência.
+// O volume entregue da quinzena define a faixa, que vale para toda ela.
 // A qualidade da quinzena (revisada ÷ entregue) pode travar o preço numa faixa inferior:
 //   qualidade ≥ qual_premium → preço integral da faixa alcançada
 //   qual_minima ≤ qualidade < qual_premium → preço da faixa anterior
@@ -73,7 +74,7 @@ export const getFaixasParceria = (cfg, modalidade = 'cp') => {
 
 export const calcParceria = ({ entregue, revisada, modalidade, cfg }) => {
   const faixas = getFaixasParceria(cfg, modalidade)
-  const milheiros = (revisada || 0) / 1000
+  const milheiros = (entregue || 0) / 1000
   const qualidade = entregue > 0 ? (revisada || 0) / entregue * 100 : null
   let idxVolume = 0
   faixas.forEach((fx, i) => { if (i > 0 && milheiros >= fx.min) idxVolume = i })
@@ -98,8 +99,8 @@ export const fmtMilheiros = (m) =>
   (m ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })
 
 // ── Prêmios do Programa de Parceria (itens 4 e 5 do documento v3) ─────────────
-// Tudo aqui é apurado por QUINZENA e sempre sobre o APROVADO na conferência
-// (revisada) — a mesma base do pagamento. Um período só entra na conta quando
+// Tudo aqui é apurado por QUINZENA e sempre sobre o ENTREGUE na conferência
+// — a mesma base do pagamento. Um período só entra na conta quando
 // tem conferência; quinzena sem entrega conta como zero, não como falha de
 // qualidade (qualidade fica nula).
 //

@@ -116,7 +116,7 @@ export default function Premios() {
           </div>
         </div>
         <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 10 }}>
-          ℹ️ A apuração usa o <strong>aprovado na conferência</strong> — a mesma base do pagamento. A provisão é uma estimativa que muda até o fim do ano;
+          ℹ️ A apuração usa o <strong>entregue na conferência</strong> — a mesma base do pagamento. A provisão é uma estimativa que muda até o fim do ano;
           o valor só congela quando o prêmio é concedido.
         </div>
       </div>

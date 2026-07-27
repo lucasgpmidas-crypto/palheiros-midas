@@ -25,13 +25,13 @@ export default function HistIndividual() {
   const f = funcionarios.find(x => x.id === Number(funcId))
   const ativos = funcionarios.filter(x => x.situacao === 'ativo' && isProducao(x))
 
-  // Perda e aprovado vêm da revisão da finalização (controle_qualidade), não dos
+  // Perda e entregue vêm da revisão da finalização (controle_qualidade), não dos
   // campos de registros_producao — a conferência é a fonte oficial.
   const perdaPorData = new Map()
-  const aprovadoPorData = new Map()
+  const entreguePorData = new Map()
   cqRegistros.forEach(c => {
     perdaPorData.set(c.data, (perdaPorData.get(c.data) || 0) + (c.perda || 0))
-    aprovadoPorData.set(c.data, (aprovadoPorData.get(c.data) || 0) + (c.revisada || 0))
+    entreguePorData.set(c.data, (entreguePorData.get(c.data) || 0) + (c.entregue || 0))
   })
 
   const total     = registros.reduce((s, r) => s + r.quantidade, 0)
@@ -40,10 +40,10 @@ export default function HistIndividual() {
   const melhor    = registros.reduce((mx, r) => r.quantidade > mx ? r.quantidade : mx, 0)
   const diasMeta  = f ? registros.filter(r => r.quantidade >= f.meta_diaria).length : 0
   const totalPerd = [...perdaPorData.values()].reduce((s, p) => s + p, 0)
-  // Rastreio declarado × aprovado (só dias já conferidos): descarte + o que não chegou
-  const totalAprov = [...aprovadoPorData.values()].reduce((s, v) => s + v, 0)
-  const declaradoConf = registros.filter(r => aprovadoPorData.has(r.data)).reduce((s, r) => s + r.quantidade, 0)
-  const difTotal = declaradoConf - totalAprov
+  // Rastreio declarado × entregue (só dias já conferidos): o que não chegou na conferência
+  const totalEntregue = [...entreguePorData.values()].reduce((s, v) => s + v, 0)
+  const declaradoConf = registros.filter(r => entreguePorData.has(r.data)).reduce((s, r) => s + r.quantidade, 0)
+  const difTotal = declaradoConf - totalEntregue
 
   // Gráfico
   const allDays = Array.from({ length: Number(periodo) }, (_, i) =>
@@ -55,12 +55,12 @@ export default function HistIndividual() {
 
   const exportar = () => {
     if (!f) return
-    exportCSV([['Data', 'Dia', 'Declarado', 'Aprovado (conferência)', 'Diferença', 'Perda (conferência)', 'Valor', '% Meta', 'Obs.'],
+    exportCSV([['Data', 'Dia', 'Declarado', 'Entregue na conferência', 'Diferença', 'Perda (conferência)', 'Valor', '% Meta', 'Obs.'],
       ...registros.map(r => {
         const pct = pctMeta(r.quantidade, f.meta_diaria)
         const perda = perdaPorData.get(r.data)
-        const aprov = aprovadoPorData.get(r.data)
-        return [fmtData(r.data), new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long' }), r.quantidade, aprov ?? '—', aprov != null ? r.quantidade - aprov : '—', perda ?? '—', `R$${Number(r.valor).toFixed(2)}`, pct + '%', r.obs || '']
+        const ent = entreguePorData.get(r.data)
+        return [fmtData(r.data), new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long' }), r.quantidade, ent ?? '—', ent != null ? r.quantidade - ent : '—', perda ?? '—', `R$${Number(r.valor).toFixed(2)}`, pct + '%', r.obs || '']
       })], `individual_${f.nome.replace(/\s+/g, '_')}_${periodo}d.csv`)
   }
 
@@ -100,7 +100,7 @@ export default function HistIndividual() {
                 { cls: 'sc-blue',   sv: 'sv-blue',   label: 'Média/Dia', val: fmtNum(media) + ' un.' },
                 { cls: 'sc-amber',  sv: 'sv-amber',  label: 'Melhor Dia', val: fmtNum(melhor) + ' un.' },
                 { cls: 'sc-red',    sv: 'sv-red',    label: 'Perda Total (conferência)', val: fmtNum(totalPerd) + ' un.' },
-                { cls: 'sc-purple', sv: '',           label: 'Declarado × Aprovado', val: difTotal !== 0 ? (difTotal > 0 ? '−' : '+') + fmtNum(Math.abs(difTotal)) + ' un.' : '0 un.', cor: difTotal > 0 ? 'var(--red)' : 'var(--purple)' },
+                { cls: 'sc-purple', sv: '',           label: 'Declarado × Entregue', val: difTotal !== 0 ? (difTotal > 0 ? '−' : '+') + fmtNum(Math.abs(difTotal)) + ' un.' : '0 un.', cor: difTotal > 0 ? 'var(--red)' : 'var(--purple)' },
               ].map(x => (
                 <div key={x.label} className={`stat-card ${x.cls}`}>
                   <div className="stat-label">{x.label}</div>
@@ -152,20 +152,20 @@ export default function HistIndividual() {
               : registros.length === 0
                 ? <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Sem registros no período</div></div>
                 : <div className="table-wrap"><table>
-                    <thead><tr><th>Data</th><th>Dia</th><th>Declarado</th><th>Aprovado (conferência)</th><th>Diferença</th><th>Perda (conferência)</th><th>Valor</th><th>% Meta</th><th>vs Média</th><th>Obs.</th></tr></thead>
+                    <thead><tr><th>Data</th><th>Dia</th><th>Declarado</th><th>Entregue na conferência</th><th>Diferença</th><th>Perda (conferência)</th><th>Valor</th><th>% Meta</th><th>vs Média</th><th>Obs.</th></tr></thead>
                     <tbody>{registros.map(r => {
                       const pct = f ? pctMeta(r.quantidade, f.meta_diaria) : 0
                       const diff = r.quantidade - media
                       const perda = perdaPorData.get(r.data)
-                      const aprov = aprovadoPorData.get(r.data)
-                      const difR = aprov != null ? r.quantidade - aprov : null
+                      const ent = entreguePorData.get(r.data)
+                      const difR = ent != null ? r.quantidade - ent : null
                       return (
                         <tr key={r.id}>
                           <td>{fmtData(r.data)}</td>
                           <td style={{ color: 'var(--text3)' }}>{new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short' })}</td>
                           <td><strong style={{ color: 'var(--text)' }}>{fmtNum(r.quantidade)} un.</strong></td>
-                          <td style={{ color: aprov != null ? 'var(--green)' : 'var(--text3)' }}>{aprov != null ? fmtNum(aprov) + ' un.' : '⏳ aguardando'}</td>
-                          <td title="Declarado − aprovado na conferência: descarte + o que não chegou">
+                          <td style={{ color: ent != null ? 'var(--green)' : 'var(--text3)' }}>{ent != null ? fmtNum(ent) + ' un.' : '⏳ aguardando'}</td>
+                          <td title="Declarado − entregue na conferência: o que o parceiro anotou e nunca chegou. O descarte da revisão continua sendo pago.">
                             {difR == null ? <span style={{ color: 'var(--text3)' }}>—</span>
                               : difR > 0 ? <strong style={{ color: 'var(--red)' }}>−{fmtNum(difR)} un.</strong>
                               : difR < 0 ? <strong style={{ color: 'var(--amber)' }}>+{fmtNum(-difR)} un.</strong>

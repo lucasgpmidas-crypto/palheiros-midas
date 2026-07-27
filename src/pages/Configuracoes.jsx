@@ -218,7 +218,7 @@ export default function Configuracoes() {
       <div className="card mb16">
         <div className="card-title">🤝 Programa de Parceria — Faixas Quinzenais</div>
         <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 14 }}>
-          O preço do milheiro é definido pelo volume conferido na quinzena e vale para toda ela.
+          O preço do milheiro é definido pelo volume entregue na conferência da quinzena e vale para toda ela. O descarte da revisão continua sendo pago — quem pune descarte é a trava de qualidade.
           Qualidade (conferido ÷ entregue) abaixo de {cfg.qualPremium}% derruba o preço uma faixa; abaixo de {cfg.qualMinima}% vai para a Base.
           A tabela fica visível para todos os parceiros no app.
         </div>
@@ -245,7 +245,7 @@ export default function Configuracoes() {
         <div className="card-title">🏅 Prêmios do Programa</div>
         <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 14 }}>
           Qualificação: o parceiro novo precisa cumprir volume <strong>e</strong> qualidade nas 6 primeiras quinzenas — falhou uma, não recebe.
-          Prêmios anuais são apurados pelo aprovado no ano e concedidos na tela <strong>Prêmios</strong>; a fidelidade vale o faturamento do ano ÷ 24 × 2.
+          Prêmios anuais são apurados pelo entregue na conferência no ano e concedidos na tela <strong>Prêmios</strong>; a fidelidade vale o faturamento do ano ÷ 24 × 2.
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
           {PM_CAMPOS.map(([chave, key, label]) => (

@@ -77,8 +77,9 @@ export default function MinhaProducao() {
   const regsQz  = meusRegs.filter(r => r.data >= qz.inicio && r.data <= qz.fim)
   const totalQz = regsQz.reduce((s, r) => s + r.quantidade, 0)
 
-  // Programa de Parceria: a quinzena é apurada pelo CONFERIDO (entregue na revisão),
-  // com faixa de preço e trava de qualidade — mesma conta usada na Folha do admin
+  // Programa de Parceria: a quinzena é paga pelo ENTREGUE na conferência (o descarte
+  // da revisão não desconta), com faixa de preço e trava de qualidade — mesma conta
+  // usada na Folha do admin. O que não é pago é o declarado que nunca chegou.
   const cqQz = meusCQ.filter(c => c.data >= qz.inicio && c.data <= qz.fim)
   const entregueQz = cqQz.reduce((s, c) => s + (c.entregue || 0), 0)
   const revisadaQz = cqQz.reduce((s, c) => s + (c.revisada || 0), 0)
@@ -86,9 +87,10 @@ export default function MinhaProducao() {
   const parceria = calcParceria({ entregue: entregueQz, revisada: revisadaQz, modalidade, cfg })
   const diasCqQz = new Set(cqQz.map(c => c.data))
   const aguardandoQz = regsQz.filter(r => !diasCqQz.has(r.data)).reduce((s, r) => s + r.quantidade, 0)
-  // Rastreio declarado × aprovado (só dias já conferidos): perda + o que foi declarado mas nunca chegou
+  // Rastreio declarado × entregue (só dias já conferidos): o que foi declarado e nunca
+  // chegou na conferência — o descarte não entra aqui, porque continua sendo pago
   const declaradoConfQz = regsQz.filter(r => diasCqQz.has(r.data)).reduce((s, r) => s + r.quantidade, 0)
-  const difDeclaradoQz = declaradoConfQz - revisadaQz
+  const difDeclaradoQz = declaradoConfQz - entregueQz
   const diasEntregaQz = new Set(regsQz.map(r => r.data)).size
   const ajudaQz = modalidade === 'cp' ? diasEntregaQz * cfg.ajudaCustoDia : 0
   const totalQzReceber = parceria.valor + ajudaQz
@@ -331,7 +333,7 @@ export default function MinhaProducao() {
             {/* Memória de cálculo — nenhum número sem a conta do lado */}
             <div style={{ background: 'var(--bg3)', borderRadius: 'var(--rs)', padding: '10px 14px', fontSize: 13, display: 'grid', gap: 6 }}>
               <div>
-                <span style={{ color: 'var(--text3)' }}>Produção aprovada: </span>
+                <span style={{ color: 'var(--text3)' }}>Produção conferida: </span>
                 <strong>{fmtMilheiros(milheiros)} milheiros × {fmtMoeda(preco)} = </strong>
                 <strong style={{ color: 'var(--green)' }}>{fmtMoeda(valor)}</strong>
               </div>
@@ -339,11 +341,11 @@ export default function MinhaProducao() {
                 <div style={{ fontSize: 12 }}>
                   <span style={{ color: 'var(--text3)' }}>Declarado nos dias já conferidos: </span>
                   <strong>{fmtNum(declaradoConfQz)} un.</strong>
-                  <span style={{ color: 'var(--text3)' }}> · aprovado: </span>
-                  <strong>{fmtNum(revisadaQz)} un.</strong>
+                  <span style={{ color: 'var(--text3)' }}> · chegou na conferência: </span>
+                  <strong>{fmtNum(entregueQz)} un.</strong>
                   <span style={{ color: 'var(--text3)' }}> · diferença: </span>
                   <strong style={{ color: 'var(--red)' }}>{fmtNum(difDeclaradoQz)} un. não pagas</strong>
-                  <span style={{ color: 'var(--text3)' }}> (descarte + o que não chegou na conferência)</span>
+                  <span style={{ color: 'var(--text3)' }}> (declarado que não chegou — o descarte da revisão continua sendo pago)</span>
                 </div>
               )}
               {modalidade === 'cp' && (
@@ -359,7 +361,7 @@ export default function MinhaProducao() {
               </div>
               {aguardandoQz > 0 && (
                 <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                  ⏳ Mais {fmtNum(aguardandoQz)} un. declaradas aguardam conferência — o que for aprovado entra na conta (e pode subir sua faixa).
+                  ⏳ Mais {fmtNum(aguardandoQz)} un. declaradas aguardam conferência — o que chegar lá entra na conta (e pode subir sua faixa).
                 </div>
               )}
             </div>
@@ -443,7 +445,7 @@ export default function MinhaProducao() {
             <div style={{ fontSize: 11.5, color: 'var(--text3)' }}>
               ✨ Qualidade acima de {cfg.qualPremium}% em todas as quinzenas do ano (com {cfg.premioQualMin}+ milheiros) vale {fmtMoeda(cfg.premioQualAnual)} ·
               💛 {cfg.premioFidMin}+ milheiros no ano dão direito ao prêmio de fidelidade, equivalente a um mês médio de faturamento.
-              Tudo conta pelo <strong>aprovado na conferência</strong>.
+              Tudo conta pelo <strong>entregue na conferência</strong>.
             </div>
 
             {meusPremios.length > 0 && (

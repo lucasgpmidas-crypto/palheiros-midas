@@ -17,26 +17,26 @@ export default function Historico() {
   const { registros, loading, excluir } = useRegistros({ funcId: aplicados.funcId || undefined, dataInicio: aplicados.dataInicio, dataFim: aplicados.dataFim })
   const { cqRegistros } = useCQ({ funcId: aplicados.funcId || undefined, dataInicio: aplicados.dataInicio, dataFim: aplicados.dataFim })
 
-  // Aprovado por funcionário/dia vem da conferência — rastreia declarado × aprovado
-  const aprovadoPorDia = new Map()
+  // Entregue por funcionário/dia vem da conferência — rastreia declarado × entregue
+  const entreguePorDia = new Map()
   cqRegistros.forEach(c => {
     const k = c.func_id + '|' + c.data
-    aprovadoPorDia.set(k, (aprovadoPorDia.get(k) || 0) + (c.revisada || 0))
+    entreguePorDia.set(k, (entreguePorDia.get(k) || 0) + (c.entregue || 0))
   })
-  const aprovadoDe = (r) => aprovadoPorDia.get(r.func_id + '|' + r.data)
+  const entregueDe = (r) => entreguePorDia.get(r.func_id + '|' + r.data)
 
   const total = registros.reduce((s, r) => s + r.quantidade, 0)
   const valor = registros.reduce((s, r) => s + Number(r.valor || 0), 0)
-  const totalAprov = registros.reduce((s, r) => s + (aprovadoDe(r) ?? 0), 0)
-  const difTotal = registros.filter(r => aprovadoDe(r) != null).reduce((s, r) => s + r.quantidade, 0) - totalAprov
+  const totalEntregue = registros.reduce((s, r) => s + (entregueDe(r) ?? 0), 0)
+  const difTotal = registros.filter(r => entregueDe(r) != null).reduce((s, r) => s + r.quantidade, 0) - totalEntregue
 
   const handleExportar = () => {
     exportCSV(
-      [['Data', 'Funcionário', 'Declarado', 'Aprovado (conferência)', 'Diferença', 'Valor', '% Meta', 'Obs.'],
+      [['Data', 'Funcionário', 'Declarado', 'Entregue na conferência', 'Diferença', 'Valor', '% Meta', 'Obs.'],
        ...registros.map(r => {
          const pct = r.funcionarios?.meta_diaria ? pctMeta(r.quantidade, r.funcionarios.meta_diaria) : 0
-         const aprov = aprovadoDe(r)
-         return [fmtData(r.data), r.funcionarios?.nome, r.quantidade, aprov ?? '—', aprov != null ? r.quantidade - aprov : '—', `R$${Number(r.valor).toFixed(2)}`, pct + '%', r.obs || '']
+         const ent = entregueDe(r)
+         return [fmtData(r.data), r.funcionarios?.nome, r.quantidade, ent ?? '—', ent != null ? r.quantidade - ent : '—', `R$${Number(r.valor).toFixed(2)}`, pct + '%', r.obs || '']
        })],
       `historico_${aplicados.dataInicio}_${aplicados.dataFim}.csv`
     )
@@ -63,7 +63,7 @@ export default function Historico() {
       <div className="card">
         <div className="card-title">Histórico de Produção</div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-          {[['Declarado', fmtNum(total) + ' un.', 'var(--gold-light)'], ['Aprovado', fmtNum(totalAprov) + ' un.', 'var(--green)'], ['Dif. Declarado × Aprovado', (difTotal > 0 ? '−' : difTotal < 0 ? '+' : '') + fmtNum(Math.abs(difTotal)) + ' un.', difTotal > 0 ? 'var(--red)' : 'var(--text)'], ['Valor', fmtMoeda(valor), 'var(--green)'], ['Registros', registros.length, 'var(--text)']].map(([l, v, c]) => (
+          {[['Declarado', fmtNum(total) + ' un.', 'var(--gold-light)'], ['Entregue na conferência', fmtNum(totalEntregue) + ' un.', 'var(--green)'], ['Dif. Declarado × Entregue', (difTotal > 0 ? '−' : difTotal < 0 ? '+' : '') + fmtNum(Math.abs(difTotal)) + ' un.', difTotal > 0 ? 'var(--red)' : 'var(--text)'], ['Valor', fmtMoeda(valor), 'var(--green)'], ['Registros', registros.length, 'var(--text)']].map(([l, v, c]) => (
             <div key={l} className="stats-chip"><span style={{ color: 'var(--text3)' }}>{l}: </span><strong style={{ color: c }}>{v}</strong></div>
           ))}
         </div>
@@ -72,19 +72,19 @@ export default function Historico() {
             ? <div className="empty-state"><div className="es-icon">🔍</div><div className="es-text">Nenhum registro no período</div></div>
             : <div className="table-wrap">
                 <table>
-                  <thead><tr><th>Data</th><th>Funcionário</th><th>Declarado</th><th>Aprovado (conferência)</th><th>Diferença</th><th>Valor</th><th>% Meta</th><th>Obs.</th><th>Ações</th></tr></thead>
+                  <thead><tr><th>Data</th><th>Funcionário</th><th>Declarado</th><th>Entregue na conferência</th><th>Diferença</th><th>Valor</th><th>% Meta</th><th>Obs.</th><th>Ações</th></tr></thead>
                   <tbody>
                     {registros.map(r => {
                       const pct = r.funcionarios?.meta_diaria ? pctMeta(r.quantidade, r.funcionarios.meta_diaria) : 0
-                      const aprov = aprovadoDe(r)
-                      const difR = aprov != null ? r.quantidade - aprov : null
+                      const ent = entregueDe(r)
+                      const difR = ent != null ? r.quantidade - ent : null
                       return (
                         <tr key={r.id}>
                           <td>{fmtData(r.data)}</td>
                           <td><strong style={{ color: 'var(--text)' }}>{r.funcionarios?.nome}</strong></td>
                           <td>{fmtNum(r.quantidade)} un.</td>
-                          <td style={{ color: aprov != null ? 'var(--green)' : 'var(--text3)' }}>{aprov != null ? fmtNum(aprov) + ' un.' : '⏳ aguardando'}</td>
-                          <td title="Declarado − aprovado na conferência: descarte + o que não chegou">
+                          <td style={{ color: ent != null ? 'var(--green)' : 'var(--text3)' }}>{ent != null ? fmtNum(ent) + ' un.' : '⏳ aguardando'}</td>
+                          <td title="Declarado − entregue na conferência: o que o parceiro anotou e nunca chegou. O descarte da revisão continua sendo pago.">
                             {difR == null ? <span style={{ color: 'var(--text3)' }}>—</span>
                               : difR > 0 ? <strong style={{ color: 'var(--red)' }}>−{fmtNum(difR)} un.</strong>
                               : difR < 0 ? <strong style={{ color: 'var(--amber)' }}>+{fmtNum(-difR)} un.</strong>

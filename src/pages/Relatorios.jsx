@@ -240,7 +240,7 @@ function TabFolha({ funcionarios, valorMil }) {
   // Programa de Parceria: paga-se APENAS o APROVADO na conferência (revisada) pelo
   // preço da faixa da quinzena, com trava de qualidade — mesma conta da MinhaProducao.
   // O declarado sem conferência fica de fora ("aguardando"); a diferença
-  // declarado × aprovado (descarte + o que nunca chegou) é rastreada por parceiro.
+  // declarado × entregue (o que nunca chegou na conferência) é rastreada por parceiro.
   const porFunc = funcionarios.filter(f => f.situacao === 'ativo' && isProducao(f)).map(f => {
     const fr = registros.filter(r => r.func_id === f.id)
     const cq = cqRegistros.filter(c => c.func_id === f.id)
@@ -253,7 +253,7 @@ function TabFolha({ funcionarios, valorMil }) {
     const diasCq = new Set(cq.map(c => c.data))
     const aguardando = fr.filter(r => !diasCq.has(r.data)).reduce((s, r) => s + (r.quantidade || 0), 0)
     const declConf = fr.filter(r => diasCq.has(r.data)).reduce((s, r) => s + (r.quantidade || 0), 0)
-    const dif = declConf - revisada
+    const dif = declConf - entregue
     const ajuda = modalidade === 'cp' ? dias * cfg.ajudaCustoDia : 0
     const metaPer = f.meta_diaria * diasUteisEst
     const pct = metaPer > 0 ? Math.round(totProd / metaPer * 100) : 0
@@ -262,7 +262,7 @@ function TabFolha({ funcionarios, valorMil }) {
 
   const totalValor      = porFunc.reduce((s, x) => s + x.total, 0)
   const totalProd       = porFunc.reduce((s, x) => s + x.totProd, 0)
-  const totalAprovado   = porFunc.reduce((s, x) => s + x.revisada, 0)
+  const totalEntregue   = porFunc.reduce((s, x) => s + x.entregue, 0)
   const totalDif        = porFunc.reduce((s, x) => s + x.dif, 0)
   const totalAguardando = porFunc.reduce((s, x) => s + x.aguardando, 0)
   const labelPeriodo = inicio && fim ? `${fmtData(inicio)} a ${fmtData(fim)}` : '—'
@@ -274,13 +274,13 @@ function TabFolha({ funcionarios, valorMil }) {
   }
 
   const linhas = () => [
-    ['Funcionário', 'Modalidade', 'Dias c/ Entrega', 'Declarado (un.)', 'Entregue na Conferência (un.)', 'Aprovado (un.)', 'Dif. Declarado × Aprovado (un.)', 'Qualidade %', 'Faixa', 'Preço/Milheiro (R$)', 'Produção (R$)', 'Ajuda de Custo (R$)', 'Total a Receber (R$)'],
+    ['Funcionário', 'Modalidade', 'Dias c/ Entrega', 'Declarado (un.)', 'Entregue na Conferência (un.)', 'Aprovado na Revisão (un.)', 'Dif. Declarado × Entregue (un.)', 'Qualidade %', 'Faixa', 'Preço/Milheiro (R$)', 'Produção (R$)', 'Ajuda de Custo (R$)', 'Total a Receber (R$)'],
     ...porFunc.map(({ f, modalidade, dias, totProd, entregue, revisada, dif, p, ajuda, total }) => [
       f.nome, modalidade === 'externo' ? 'Externo' : 'CP Barretos', dias, totProd, entregue, revisada, dif,
       p.qualidade == null ? '—' : p.qualidade.toFixed(1), p.faixaEfetiva.nome, p.preco,
       p.valor.toFixed(2), ajuda.toFixed(2), total.toFixed(2),
     ]),
-    ['TOTAL', '—', '—', totalProd, '—', totalAprovado, totalDif, '—', '—', '—', '—', '—', totalValor.toFixed(2)],
+    ['TOTAL', '—', '—', totalProd, totalEntregue, '—', totalDif, '—', '—', '—', '—', '—', totalValor.toFixed(2)],
   ]
   const exportarCSV  = () => exportCSV(linhas(), `folha_${inicio}_${fim}.csv`)
   const exportarXLSX = () => exportXLSX([{ name: 'Folha de Pagamento', rows: linhas() }], `folha_${inicio}_${fim}.xlsx`)
@@ -314,15 +314,15 @@ function TabFolha({ funcionarios, valorMil }) {
               <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', fontFamily: 'Barlow Condensed,sans-serif' }}>{porFunc.length}</div>
             </div>
             <div>
-              <div style={{ fontSize: 10.5, color: 'var(--text3)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 1 }}>Aprovado (pago)</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--gold-light)', fontFamily: 'Barlow Condensed,sans-serif' }}>{fmtNum(totalAprovado)} un.</div>
+              <div style={{ fontSize: 10.5, color: 'var(--text3)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 1 }}>Entregue (pago)</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--gold-light)', fontFamily: 'Barlow Condensed,sans-serif' }}>{fmtNum(totalEntregue)} un.</div>
             </div>
             <div>
               <div style={{ fontSize: 10.5, color: 'var(--text3)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 1 }}>Declarado</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', fontFamily: 'Barlow Condensed,sans-serif' }}>{fmtNum(totalProd)} un.</div>
             </div>
             <div>
-              <div style={{ fontSize: 10.5, color: 'var(--text3)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 1 }}>Dif. Declarado × Aprovado</div>
+              <div style={{ fontSize: 10.5, color: 'var(--text3)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 1 }}>Dif. Declarado × Entregue</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: totalDif > 0 ? 'var(--red)' : 'var(--text)', fontFamily: 'Barlow Condensed,sans-serif' }}>{fmtNum(totalDif)} un.</div>
             </div>
           </div>
@@ -346,7 +346,7 @@ function TabFolha({ funcionarios, valorMil }) {
                     <th>Funcionário</th>
                     <th>Dias</th>
                     <th>Declarado</th>
-                    <th>Aprovado (pago)</th>
+                    <th>Entregue (pago)</th>
                     <th>Diferença</th>
                     <th>Qualidade</th>
                     <th>Faixa · Preço/mil</th>
@@ -368,11 +368,11 @@ function TabFolha({ funcionarios, valorMil }) {
                         {fmtNum(totProd)} un.
                         {aguardando > 0 && <div style={{ fontSize: 10.5, color: 'var(--amber)' }}>⏳ {fmtNum(aguardando)} aguardam conferência</div>}
                       </td>
-                      <td style={{ color: revisada > 0 ? 'var(--text)' : 'var(--text3)' }}>
-                        {revisada > 0 ? <strong>{fmtNum(revisada)} un.</strong> : '—'}
-                        {entregue > 0 && <div style={{ fontSize: 10.5, color: 'var(--text3)' }}>de {fmtNum(entregue)} entregues</div>}
+                      <td style={{ color: entregue > 0 ? 'var(--text)' : 'var(--text3)' }}>
+                        {entregue > 0 ? <strong>{fmtNum(entregue)} un.</strong> : '—'}
+                        {entregue > 0 && <div style={{ fontSize: 10.5, color: 'var(--text3)' }}>{fmtNum(revisada)} aprovados na revisão</div>}
                       </td>
-                      <td title="Declarado (dias já conferidos) − aprovado: descarte + o que não chegou na conferência">
+                      <td title="Declarado (dias já conferidos) − entregue: o que o parceiro anotou e nunca chegou na conferência. O descarte da revisão continua sendo pago.">
                         {dif > 0 ? <strong style={{ color: 'var(--red)' }}>−{fmtNum(dif)} un.</strong>
                           : dif < 0 ? <strong style={{ color: 'var(--amber)' }}>+{fmtNum(-dif)} un.</strong>
                           : <span style={{ color: 'var(--text3)' }}>—</span>}
@@ -400,7 +400,7 @@ function TabFolha({ funcionarios, valorMil }) {
                     <td><strong style={{ color: 'var(--text)' }}>TOTAL</strong></td>
                     <td>—</td>
                     <td><strong style={{ color: 'var(--text)' }}>{fmtNum(totalProd)} un.</strong></td>
-                    <td><strong style={{ color: 'var(--gold-light)' }}>{fmtNum(totalAprovado)} un.</strong></td>
+                    <td><strong style={{ color: 'var(--gold-light)' }}>{fmtNum(totalEntregue)} un.</strong></td>
                     <td>{totalDif > 0 ? <strong style={{ color: 'var(--red)' }}>−{fmtNum(totalDif)} un.</strong> : '—'}</td>
                     <td>—</td>
                     <td>—</td>
