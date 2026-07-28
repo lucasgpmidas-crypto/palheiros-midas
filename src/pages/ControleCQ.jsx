@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { subDays, format } from 'date-fns'
 import { useCQ, useFuncionarios, useRegistros, useConfig } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
-import { getHoje, fmtNum, fmtData, exportCSV, sugerirEmpacote, isProducao } from '../lib/utils'
+import { getHoje, fmtNum, fmtData, exportCSV, sugerirEmpacote, isProducao, ratearRevisado, ratearInteiro } from '../lib/utils'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 import toast from 'react-hot-toast'
@@ -27,10 +27,129 @@ export default function ControleCQ() {
 
   const { funcionarios } = useFuncionarios()
   const { uniDisplay, uniMaco } = useConfig()
-  const { cqRegistros, loading, registrar, atualizar, excluir, resolverContestacao } = useCQ({ funcId: aplicados.funcId || undefined, dataInicio: aplicados.dataInicio, dataFim: aplicados.dataFim, tipo: aplicados.tipo || undefined })
+  const { cqRegistros, loading, registrar, registrarVarios, atualizar, atualizarVarios, excluir, resolverContestacao } = useCQ({ funcId: aplicados.funcId || undefined, dataInicio: aplicados.dataInicio, dataFim: aplicados.dataFim, tipo: aplicados.tipo || undefined })
   // Produção declarada pelo funcionário na data selecionada no formulário
   const { registros: regsDia } = useRegistros({ data: form.data })
   const prodDeclarada = form.funcId ? (regsDia.find(r => r.func_id === Number(form.funcId))?.quantidade || 0) : null
+
+  // ── Lote de vários dias ────────────────────────────────────────────────────
+  // O lote chega com a etiqueta de cada dia, mas a revisão é feita e contada de uma
+  // vez só. Aqui ela lança os dias juntos e o sistema grava um registro por data.
+  const [modo, setModo] = useState('dia')
+  const [lote, setLote] = useState({ funcId: '', tipo: 'Original', revisado: '', obs: '', revisadoEm: getHoje() })
+  const [itens, setItens] = useState({})            // data -> { incluir, entregue }
+  const [salvandoLote, setSalvandoLote] = useState(false)
+
+  const { registros: regsLote } = useRegistros({ funcId: lote.funcId || undefined, dataInicio: ini30, dataFim: hoje })
+  const { cqRegistros: cqLote } = useCQ({ funcId: lote.funcId || undefined, dataInicio: ini30, dataFim: hoje })
+
+  // Dias que o parceiro declarou e ainda não passaram pela revisão
+  const diasPendentes = useMemo(() => {
+    if (!lote.funcId) return []
+    const comCQ = new Set(cqLote.filter(c => c.func_id === Number(lote.funcId)).map(c => c.data))
+    return regsLote
+      .filter(r => r.func_id === Number(lote.funcId) && !comCQ.has(r.data))
+      .sort((a, b) => a.data.localeCompare(b.data))
+  }, [lote.funcId, regsLote, cqLote])
+
+  // Ao trocar de parceiro, já traz os dias pendentes com o que ele declarou. O dia de
+  // hoje vem desmarcado: a produção de hoje costuma estar com o enrolador ainda, e
+  // marcá-la por engano criaria uma revisão de um lote que não chegou.
+  useEffect(() => {
+    const inicial = {}
+    diasPendentes.forEach(r => { inicial[r.data] = { incluir: r.data < hoje, entregue: String(r.quantidade) } })
+    setItens(inicial)
+    setLote(l => ({ ...l, revisado: '' }))
+  }, [lote.funcId, diasPendentes.length, hoje])
+
+  // Um monte contado junto ganha um identificador comum, para as linhas daqueles dias
+  // continuarem se reconhecendo como o mesmo lote depois de gravadas
+  const novoLoteId = () => 'L' + Date.now().toString(36).toUpperCase()
+
+  const selecionados = diasPendentes
+    .filter(r => itens[r.data]?.incluir)
+    .map(r => ({ data: r.data, declarado: r.quantidade, entregue: parseInt(itens[r.data]?.entregue) || 0 }))
+  const totalEntregueLote = selecionados.reduce((s, i) => s + i.entregue, 0)
+  const revisadoLote = lote.revisado === '' ? totalEntregueLote : (parseInt(lote.revisado) || 0)
+  const previa = ratearRevisado(selecionados, revisadoLote)
+  const descarteLote = totalEntregueLote - previa.reduce((s, i) => s + i.revisada, 0)
+
+  const setItem = (data, campo, valor) =>
+    setItens(m => ({ ...m, [data]: { ...m[data], [campo]: valor } }))
+
+  const handleRegistrarLote = async () => {
+    if (!lote.funcId) { toast.error('Selecione o parceiro'); return }
+    if (!selecionados.length) { toast.error('Marque ao menos um dia'); return }
+    if (totalEntregueLote <= 0) { toast.error('Informe o que foi entregue em cada dia'); return }
+    if (revisadoLote > totalEntregueLote) { toast.error('O aprovado não pode ser maior que o entregue'); return }
+    setSalvandoLote(true)
+    const quem = isAdmin ? 'Admin' : funcSession?.nome || null
+    const loteId = previa.length > 1 ? novoLoteId() : null
+    const ok = await registrarVarios(previa.map(i => ({
+      func_id: Number(lote.funcId), data: i.data, os: null, tipo: lote.tipo,
+      entregue: i.entregue, revisada: i.revisada, display: null, macos: null,
+      obs: lote.obs || null, registrado_por_revisao: quem,
+      lote_id: loteId, revisado_em: lote.revisadoEm,
+    })))
+    if (ok) { setLote({ funcId: '', tipo: 'Original', revisado: '', obs: '', revisadoEm: getHoje() }); setItens({}) }
+    setSalvandoLote(false)
+  }
+
+  // ── Embalagem em lote ──────────────────────────────────────────────────────
+  // Quem passa para display embala o monte inteiro do parceiro de uma vez. Ela informa
+  // o total de displays e maços; o sistema divide entre os dias, proporcional ao que
+  // cada um teve de aprovado. Display é inteiro: quem tem a maior fração leva a sobra.
+  const [embLote, setEmbLote] = useState({ funcId: '', displays: '', macos: '', embaladoEm: getHoje(), grupo: '' })
+  const [marcadosEmb, setMarcadosEmb] = useState({})
+  const [salvandoEmbLote, setSalvandoEmbLote] = useState(false)
+
+  // Todos os dias revisados sem display, do parceiro. O lote aparece como etiqueta em
+  // cada linha (de qual monte veio), mas não limita a seleção: dias lançados avulsos,
+  // ou de montes diferentes, podem ter sido embalados juntos assim mesmo.
+  const pendentesEmb = useMemo(() => {
+    if (!embLote.funcId) return []
+    return cqLote
+      .filter(c => c.func_id === Number(embLote.funcId) && !c.registrado_por_display && c.revisada > 0)
+      .sort((a, b) => a.data.localeCompare(b.data))
+  }, [embLote.funcId, cqLote])
+
+  // Quantos dias cada monte tem, para a etiqueta da linha
+  const tamanhoLote = useMemo(() => {
+    const m = {}
+    cqLote.forEach(c => { if (c.lote_id) m[c.lote_id] = (m[c.lote_id] || 0) + 1 })
+    return m
+  }, [cqLote])
+
+  useEffect(() => {
+    const m = {}
+    pendentesEmb.forEach(c => { m[c.id] = true })
+    setMarcadosEmb(m)
+    setEmbLote(l => ({ ...l, displays: '', macos: '' }))
+  }, [embLote.funcId, pendentesEmb.length])
+
+  const embSelecionados = pendentesEmb.filter(c => marcadosEmb[c.id])
+  const revisadoEmb = embSelecionados.reduce((s, c) => s + (c.revisada || 0), 0)
+  const sugestaoEmb = revisadoEmb > 0 ? sugerirEmpacote(revisadoEmb, uniDisplay, uniMaco) : null
+  const dispTotal = embLote.displays === '' ? (sugestaoEmb?.displays || 0) : (parseInt(embLote.displays) || 0)
+  const macTotal  = embLote.macos === '' ? (sugestaoEmb?.macos || 0) : (parseInt(embLote.macos) || 0)
+  const dispRateio = ratearInteiro(embSelecionados.map(c => c.revisada || 0), dispTotal)
+  const macRateio  = ratearInteiro(embSelecionados.map(c => c.revisada || 0), macTotal)
+  const embaladoTotal = dispTotal * uniDisplay + macTotal * uniMaco
+  const sobraEmb = revisadoEmb - embaladoTotal
+
+  const handleEmbalarLote = async () => {
+    if (!embSelecionados.length) { toast.error('Marque ao menos um dia'); return }
+    if (dispTotal <= 0 && macTotal <= 0) { toast.error('Informe displays ou maços'); return }
+    if (embaladoTotal > revisadoEmb) { toast.error('O empacotado não pode passar do aprovado na revisão'); return }
+    setSalvandoEmbLote(true)
+    const quem = isAdmin ? 'Admin' : funcSession?.nome || null
+    const ok = await atualizarVarios(embSelecionados.map((c, i) => ({
+      id: c.id, display: dispRateio[i], macos: macRateio[i], registrado_por_display: quem,
+      embalado_em: embLote.embaladoEm,
+    })))
+    if (ok) { setEmbLote({ funcId: '', displays: '', macos: '', embaladoEm: getHoje(), grupo: '' }); setMarcadosEmb({}) }
+    setSalvandoEmbLote(false)
+  }
 
   // Só enroladores (produção) aparecem para seleção — a finalização revisa a produção deles
   const ativos = funcionarios.filter(f => f.situacao === 'ativo' && isProducao(f))
@@ -47,7 +166,7 @@ export default function ControleCQ() {
     if (rev > ent) { toast.error('Revisada não pode ser maior que entregue'); return }
     if (form.data > hoje) { toast.error('Data não pode ser futura'); return }
     setSaving(true)
-    const ok = await registrar({ func_id: Number(form.funcId), data: form.data, os: form.os || null, tipo: form.tipo, entregue: ent, revisada: rev, display: null, macos: null, obs: form.obs || null, registrado_por_revisao: isAdmin ? 'Admin' : funcSession?.nome || null })
+    const ok = await registrar({ func_id: Number(form.funcId), data: form.data, os: form.os || null, tipo: form.tipo, entregue: ent, revisada: rev, display: null, macos: null, obs: form.obs || null, registrado_por_revisao: isAdmin ? 'Admin' : funcSession?.nome || null, revisado_em: hoje })
     if (ok) setForm(FORM0)
     setSaving(false)
   }
@@ -100,7 +219,179 @@ export default function ControleCQ() {
     <div>
       {/* Formulário */}
       <div className="card mb16">
-        <div className="card-title">📦 Registrar Revisão (contagem, maços e descarte)</div>
+        <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <span>📦 Registrar Revisão (contagem, maços e descarte)</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[['dia', '1 dia'], ['lote', 'Vários dias'], ['embalagem', '🏷 Embalagem']].map(([m, label]) => (
+              <button key={m} onClick={() => setModo(m)}
+                style={{ padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12.5, fontWeight: 700,
+                  border: modo === m ? '2px solid var(--gold)' : '1px solid var(--border)',
+                  background: modo === m ? 'rgba(201,162,39,.14)' : 'var(--bg3)',
+                  color: modo === m ? 'var(--gold-light)' : 'var(--text2)' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {modo === 'embalagem' ? (
+          <>
+            <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 12 }}>
+              Para quando o monte do parceiro é embalado todo de uma vez. Informe <strong>o total de displays e maços</strong> que saiu;
+              o sistema divide entre os dias, proporcional ao aprovado de cada um.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, alignItems: 'flex-end', marginBottom: 12 }}>
+              <div className="fg" style={{ margin: 0 }}><label>Parceiro</label>
+                <select value={embLote.funcId} onChange={e => setEmbLote(l => ({ ...l, funcId: e.target.value }))}>
+                  <option value="">Selecionar...</option>
+                  {ativos.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                </select>
+              </div>
+              <div className="fg" style={{ margin: 0 }}><label>Embalado em</label>
+                <input type="date" value={embLote.embaladoEm} max={hoje} onChange={e => setEmbLote(l => ({ ...l, embaladoEm: e.target.value }))} />
+              </div>
+              <div className="fg" style={{ margin: 0 }}><label>Displays (total)</label>
+                <input type="number" min="0" value={embLote.displays} placeholder={sugestaoEmb ? String(sugestaoEmb.displays) : '0'}
+                  onChange={e => setEmbLote(l => ({ ...l, displays: e.target.value }))} />
+              </div>
+              <div className="fg" style={{ margin: 0 }}><label>Maços (total)</label>
+                <input type="number" min="0" value={embLote.macos} placeholder={sugestaoEmb ? String(sugestaoEmb.macos) : '0'}
+                  onChange={e => setEmbLote(l => ({ ...l, macos: e.target.value }))} />
+              </div>
+            </div>
+
+            {!embLote.funcId ? (
+              <div style={{ fontSize: 13, color: 'var(--text3)', padding: '14px 0' }}>Escolha o parceiro para ver o que está revisado e ainda não foi embalado.</div>
+            ) : pendentesEmb.length === 0 ? (
+              <div className="alert a-success"><div>✓</div><div><strong>Nada pendente de embalagem</strong><span>Tudo que foi revisado deste parceiro nos últimos 30 dias já tem display lançado.</span></div></div>
+            ) : (
+              <>
+                {sugestaoEmb && (
+                  <div style={{ fontSize: 12.5, color: 'var(--gold-light)', background: 'rgba(201,162,39,.07)', border: '1px solid rgba(201,162,39,.25)', borderRadius: 'var(--rs)', padding: '8px 14px', marginBottom: 10 }}>
+                    🏷 {fmtNum(revisadoEmb)} un. aprovadas dão <strong>{sugestaoEmb.displays} displays + {sugestaoEmb.macos} maços</strong>
+                    {sugestaoEmb.avulso > 0 && <> e sobram <strong>{sugestaoEmb.avulso} un. avulsas</strong></>} — confira com o que saiu de verdade.
+                  </div>
+                )}
+                <div className="table-wrap"><table>
+                  <thead><tr><th style={{ width: 40 }}>✓</th><th>Dia</th><th>Monte</th><th>Aprovado na revisão</th><th>Displays</th><th>Maços</th></tr></thead>
+                  <tbody>
+                    {pendentesEmb.map(c => {
+                      const idx = embSelecionados.findIndex(x => x.id === c.id)
+                      return (
+                        <tr key={c.id} style={{ opacity: marcadosEmb[c.id] ? 1 : .45 }}>
+                          <td><input type="checkbox" checked={!!marcadosEmb[c.id]} onChange={e => setMarcadosEmb(m => ({ ...m, [c.id]: e.target.checked }))} style={{ width: 'auto', margin: 0 }} /></td>
+                          <td><strong style={{ color: 'var(--text)' }}>{fmtData(c.data)}</strong></td>
+                          <td style={{ color: 'var(--text3)', fontSize: 12 }}>
+                            {c.lote_id
+                              ? <>🧾 lote de {tamanhoLote[c.lote_id]} dias{c.revisado_em ? ` · ${fmtData(c.revisado_em, 'dd/MM')}` : ''}</>
+                              : 'avulso'}
+                          </td>
+                          <td style={{ color: 'var(--green)' }}>{fmtNum(c.revisada)} un.</td>
+                          <td style={{ color: 'var(--gold-light)', fontWeight: 700 }}>{idx >= 0 ? dispRateio[idx] : '—'}</td>
+                          <td style={{ color: 'var(--text2)' }}>{idx >= 0 ? macRateio[idx] : '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table></div>
+
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', background: 'var(--bg3)', borderRadius: 'var(--rs)', padding: '10px 14px', fontSize: 13, marginTop: 12 }}>
+                  <span style={{ color: 'var(--text3)' }}>Dias: <strong style={{ color: 'var(--text)' }}>{embSelecionados.length}</strong></span>
+                  <span style={{ color: 'var(--text3)' }}>Aprovado: <strong style={{ color: 'var(--green)' }}>{fmtNum(revisadoEmb)} un.</strong></span>
+                  <span style={{ color: 'var(--text3)' }}>Embalado: <strong style={{ color: 'var(--text)' }}>{dispTotal} disp. + {macTotal} maços = {fmtNum(embaladoTotal)} un.</strong></span>
+                  <span style={{ color: 'var(--text3)' }}>Sobra avulsa: <strong style={{ color: sobraEmb < 0 ? 'var(--red)' : 'var(--text2)' }}>{fmtNum(sobraEmb)} un.</strong></span>
+                  <button className="btn btn-primary" onClick={handleEmbalarLote} disabled={salvandoEmbLote || !embSelecionados.length} style={{ marginLeft: 'auto' }}>
+                    {salvandoEmbLote ? '...' : `🏷 Lançar embalagem de ${embSelecionados.length} ${embSelecionados.length === 1 ? 'dia' : 'dias'}`}
+                  </button>
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 8 }}>
+                  ℹ️ Display e maço são inteiros: quem tem a maior sobra na conta leva a unidade a mais, e a soma fecha exatamente com o total que você informou.
+                </div>
+              </>
+            )}
+          </>
+        ) : modo === 'lote' ? (
+          <>
+            <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 12 }}>
+              Para quando chegam vários dias do mesmo parceiro de uma vez. Confira o entregue de cada dia pela etiqueta,
+              informe <strong>quanto foi aprovado no total</strong> e o sistema divide o descarte entre os dias, proporcional ao tamanho de cada lote.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, alignItems: 'flex-end', marginBottom: 12 }}>
+              <div className="fg" style={{ margin: 0 }}><label>Parceiro</label>
+                <select value={lote.funcId} onChange={e => setLote(l => ({ ...l, funcId: e.target.value }))}>
+                  <option value="">Selecionar...</option>
+                  {ativos.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                </select>
+              </div>
+              <div className="fg" style={{ margin: 0 }}><label>Tipo</label>
+                <select value={lote.tipo} onChange={e => setLote(l => ({ ...l, tipo: e.target.value }))}>{TIPOS.map(t => <option key={t} value={t}>{t}</option>)}</select>
+              </div>
+              <div className="fg" style={{ margin: 0 }}><label>Revisão fechada em</label>
+                <input type="date" value={lote.revisadoEm} max={hoje} onChange={e => setLote(l => ({ ...l, revisadoEm: e.target.value }))} />
+              </div>
+              <div className="fg" style={{ margin: 0 }}><label>Total aprovado na revisão</label>
+                <input type="number" min="0" value={lote.revisado} placeholder={totalEntregueLote ? String(totalEntregueLote) : 'Ex: 2900'}
+                  onChange={e => setLote(l => ({ ...l, revisado: e.target.value }))} />
+              </div>
+              <div className="fg" style={{ margin: 0 }}><label>Observação</label>
+                <input type="text" value={lote.obs} placeholder="Opcional..." onChange={e => setLote(l => ({ ...l, obs: e.target.value }))} />
+              </div>
+            </div>
+
+            {!lote.funcId ? (
+              <div style={{ fontSize: 13, color: 'var(--text3)', padding: '14px 0' }}>Escolha o parceiro para ver os dias que faltam revisar.</div>
+            ) : diasPendentes.length === 0 ? (
+              <div className="alert a-success"><div>✓</div><div><strong>Nenhum dia pendente</strong><span>Toda a produção declarada deste parceiro nos últimos 30 dias já passou pela revisão.</span></div></div>
+            ) : (
+              <>
+                <div className="table-wrap"><table>
+                  <thead><tr><th style={{ width: 40 }}>✓</th><th>Dia de produção</th><th>Declarado</th><th>Entregue (contagem)</th><th>Aprovado (rateado)</th><th>Descarte</th></tr></thead>
+                  <tbody>
+                    {diasPendentes.map(r => {
+                      const it = itens[r.data] || {}
+                      const calc = previa.find(p => p.data === r.data)
+                      const ent = parseInt(it.entregue) || 0
+                      return (
+                        <tr key={r.data} style={{ opacity: it.incluir ? 1 : .45 }}>
+                          <td><input type="checkbox" checked={!!it.incluir} onChange={e => setItem(r.data, 'incluir', e.target.checked)} style={{ width: 'auto', margin: 0 }} /></td>
+                          <td><strong style={{ color: 'var(--text)' }}>{fmtData(r.data)}</strong></td>
+                          <td style={{ color: 'var(--gold-light)' }}>{fmtNum(r.quantidade)} un.</td>
+                          <td>
+                            <input type="number" min="0" value={it.entregue ?? ''} disabled={!it.incluir}
+                              onChange={e => setItem(r.data, 'entregue', e.target.value)} style={{ width: 130 }} />
+                            {it.incluir && ent > 0 && ent !== r.quantidade && (
+                              <div style={{ fontSize: 10.5, color: 'var(--amber)' }}>
+                                {ent > r.quantidade ? '+' : '−'}{fmtNum(Math.abs(ent - r.quantidade))} vs declarado
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ color: 'var(--green)' }}>{calc ? fmtNum(calc.revisada) + ' un.' : '—'}</td>
+                          <td style={{ color: 'var(--red)' }}>{calc ? fmtNum(calc.entregue - calc.revisada) + ' un.' : '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table></div>
+
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', background: 'var(--bg3)', borderRadius: 'var(--rs)', padding: '10px 14px', fontSize: 13, marginTop: 12 }}>
+                  <span style={{ color: 'var(--text3)' }}>Dias: <strong style={{ color: 'var(--text)' }}>{selecionados.length}</strong></span>
+                  <span style={{ color: 'var(--text3)' }}>Entregue: <strong style={{ color: 'var(--text)' }}>{fmtNum(totalEntregueLote)} un.</strong></span>
+                  <span style={{ color: 'var(--text3)' }}>Aprovado: <strong style={{ color: 'var(--green)' }}>{fmtNum(revisadoLote)} un.</strong></span>
+                  <span style={{ color: 'var(--text3)' }}>Descarte: <strong style={{ color: 'var(--red)' }}>{fmtNum(descarteLote)} un.</strong></span>
+                  {totalEntregueLote > 0 && <span style={{ color: 'var(--text3)' }}>Qualidade: <strong style={{ color: 'var(--gold-light)' }}>{(revisadoLote / totalEntregueLote * 100).toFixed(1)}%</strong></span>}
+                  <button className="btn btn-primary" onClick={handleRegistrarLote} disabled={salvandoLote || !selecionados.length} style={{ marginLeft: 'auto' }}>
+                    {salvandoLote ? '...' : `✓ Registrar ${selecionados.length} ${selecionados.length === 1 ? 'dia' : 'dias'}`}
+                  </button>
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 8 }}>
+                  ℹ️ Cada dia vira um registro separado, para a conferência diária continuar batendo.
+                  A divisão do descarte não muda o pagamento nem a qualidade da quinzena — só distribui o que foi reprovado entre os lotes.
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+        <>
         {/* auto-fit em vez de 6 colunas fixas: no celular os campos quebram em linhas
             em vez de sair pela borda — a revisão é lançada no chão de fábrica */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 10, alignItems: 'flex-end', marginBottom: 10 }}>
@@ -148,6 +439,8 @@ export default function ControleCQ() {
               <span style={{ color: 'var(--text3)' }}>Aproveitamento: <strong style={{ color: taxaCor(taxa) }}>{taxa}%</strong></span>
             </>}
           </div>
+        )}
+        </>
         )}
       </div>
 
@@ -200,7 +493,16 @@ export default function ControleCQ() {
                       <td style={{ color: 'var(--red)' }}>{fmtNum(r.perda)} un.</td>
                       <td><span style={{ fontWeight: 700, color: taxaCor(r.taxa) }}>{r.taxa}%</span></td>
                       <td style={{ color: 'var(--red)' }}>{ptaxa}%</td>
-                      <td style={{ color: 'var(--text3)' }}>{r.registrado_por_revisao || '—'}</td>
+                      <td style={{ color: 'var(--text3)' }}>
+                        {r.registrado_por_revisao || '—'}
+                        {r.revisado_em && <div style={{ fontSize: 10.5 }}>em {fmtData(r.revisado_em)}</div>}
+                        {r.lote_id && (
+                          <div style={{ fontSize: 10.5, color: 'var(--blue)' }}
+                            title="Este dia foi contado junto com outros no mesmo monte — o descarte foi dividido proporcionalmente">
+                            🧾 lote de {cqRegistros.filter(x => x.lote_id === r.lote_id).length} dias
+                          </div>
+                        )}
+                      </td>
                       <td>{pendente
                         ? <button className="btn btn-secondary btn-xs" onClick={() => { setEmbalando(r); setEmb(EMB0) }}>🏷 Registrar embalagem</button>
                         : <span style={{ color: 'var(--text3)' }}>{r.display} disp. + {r.macos} maços <span style={{ fontSize: 11, opacity: 0.75 }}>— {r.registrado_por_display}</span></span>}

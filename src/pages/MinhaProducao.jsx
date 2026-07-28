@@ -112,7 +112,7 @@ export default function MinhaProducao() {
   const confPorDia = useMemo(() => {
     const map = new Map()
     meusCQ.forEach(c => {
-      const cur = map.get(c.data) || { perda: 0, entregue: 0, display: 0, macos: 0, temCQ: false, pendenteEmbalagem: true, contestacao: null, contestacaoStatus: null }
+      const cur = map.get(c.data) || { perda: 0, entregue: 0, display: 0, macos: 0, temCQ: false, pendenteEmbalagem: true, contestacao: null, contestacaoStatus: null, loteId: null, revisadoEm: null }
       cur.temCQ = true
       cur.entregue += c.entregue || 0
       cur.perda += c.perda || 0
@@ -121,6 +121,8 @@ export default function MinhaProducao() {
       cur.pendenteEmbalagem = cur.pendenteEmbalagem && !c.registrado_por_display
       cur.contestacao = cur.contestacao || c.contestacao || null
       cur.contestacaoStatus = cur.contestacaoStatus || c.contestacao_status || null
+      cur.loteId = cur.loteId || c.lote_id || null
+      cur.revisadoEm = cur.revisadoEm || c.revisado_em || null
       map.set(c.data, cur)
     })
     return map
@@ -132,7 +134,7 @@ export default function MinhaProducao() {
     const empacotado = c.display * uniDisplay + c.macos * uniMaco
     const diferenca = r.quantidade - c.perda - empacotado
     const status = statusConferencia({ temCQ: true, pendenteEmbalagem: c.pendenteEmbalagem, base: r.quantidade, perda: c.perda, empacotado, tolerancia })
-    return { temCQ: true, perda: c.perda, empacotado, diferenca, status, contestacao: c.contestacao, contestacaoStatus: c.contestacaoStatus }
+    return { temCQ: true, perda: c.perda, empacotado, diferenca, status, contestacao: c.contestacao, contestacaoStatus: c.contestacaoStatus, loteId: c.loteId, revisadoEm: c.revisadoEm }
   }
 
   const handleContestar = async () => {
@@ -532,7 +534,16 @@ export default function MinhaProducao() {
                             : <span title="Estimativa — o valor final depende da conferência e da faixa da quinzena" style={{ fontSize: 11, color: 'var(--text3)' }}>⏳</span>}
                         </td>
                         <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
-                        <td style={{ color: c.temCQ ? 'var(--red)' : 'var(--text3)' }}>{c.temCQ ? fmtNum(c.perda) + ' un.' : '—'}</td>
+                        <td style={{ color: c.temCQ ? 'var(--red)' : 'var(--text3)' }}>
+                          {c.temCQ ? fmtNum(c.perda) + ' un.' : '—'}
+                          {/* Quando o dia foi contado dentro de um monte, o descarte dele é a
+                              parte proporcional — dizer isso evita discussão sobre o número */}
+                          {c.loteId && (
+                            <div style={{ fontSize: 10, color: 'var(--text3)' }} title="Seus lotes foram revisados juntos e o descarte foi dividido entre os dias">
+                              revisado em lote{c.revisadoEm ? ` em ${fmtData(c.revisadoEm, 'dd/MM')}` : ''}
+                            </div>
+                          )}
+                        </td>
                         <td>{c.status === 'aguardando' ? <span style={{ color: 'var(--text3)' }}>⏳ aguardando conferência</span>
                           : c.status === 'aguardando_embalagem' ? <span style={{ color: 'var(--text3)' }}>📦 aguardando embalagem</span>
                           : <span style={{ color: c.status === 'ok' ? 'var(--green)' : c.diferenca > 0 ? 'var(--red)' : 'var(--amber)', fontWeight: 700 }}>{c.diferenca === 0 ? '0' : (c.diferenca > 0 ? '−' : '+') + fmtNum(Math.abs(c.diferenca)) + ' un.'}</span>}

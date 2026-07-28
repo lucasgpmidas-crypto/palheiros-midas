@@ -137,10 +137,33 @@ export function useCQ(filtros = {}) {
     return true
   }
 
+  // Um lote revisado de uma vez costuma cobrir vários dias de produção. Grava uma
+  // linha por dia numa tacada só, para a conferência diária continuar batendo.
+  const registrarVarios = async (payloads) => {
+    const { error } = await supabase.from('controle_qualidade').insert(payloads)
+    if (error) { toast.error('Erro ao registrar o lote: ' + error.message); return false }
+    toast.success(`✓ ${payloads.length} ${payloads.length === 1 ? 'dia registrado' : 'dias registrados'}!`)
+    await fetch()
+    return true
+  }
+
   const atualizar = async (id, payload) => {
     const { error } = await supabase.from('controle_qualidade').update(payload).eq('id', id)
     if (error) { toast.error('Erro ao atualizar: ' + error.message); return false }
     toast.success('CQ atualizado!')
+    await fetch()
+    return true
+  }
+
+  // A embalagem também é feita de uma vez para vários dias do mesmo parceiro
+  const atualizarVarios = async (itens) => {
+    const erros = []
+    for (const { id, ...campos } of itens) {
+      const { error } = await supabase.from('controle_qualidade').update(campos).eq('id', id)
+      if (error) erros.push(error.message)
+    }
+    if (erros.length) { toast.error('Erro ao gravar a embalagem: ' + erros[0]); await fetch(); return false }
+    toast.success(`✓ Embalagem de ${itens.length} ${itens.length === 1 ? 'dia' : 'dias'} registrada!`)
     await fetch()
     return true
   }
@@ -174,7 +197,7 @@ export function useCQ(filtros = {}) {
     return true
   }
 
-  return { cqRegistros: data, loading, refetch: fetch, registrar, atualizar, excluir, contestar, resolverContestacao }
+  return { cqRegistros: data, loading, refetch: fetch, registrar, registrarVarios, atualizar, atualizarVarios, excluir, contestar, resolverContestacao }
 }
 
 // ── Fechamentos de folha (trava de período) ───────────────────────────────────
