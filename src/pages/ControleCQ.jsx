@@ -40,8 +40,10 @@ export default function ControleCQ() {
   const [itens, setItens] = useState({})            // data -> { incluir, entregue }
   const [salvandoLote, setSalvandoLote] = useState(false)
 
-  const { registros: regsLote } = useRegistros({ funcId: lote.funcId || undefined, dataInicio: ini30, dataFim: hoje })
-  const { cqRegistros: cqLote } = useCQ({ funcId: lote.funcId || undefined, dataInicio: ini30, dataFim: hoje })
+  // Sem filtro de funcionário de propósito: os modos "Vários dias" e "Embalagem" podem
+  // estar em parceiros diferentes, e filtrar por um deixaria o outro sem dados.
+  const { registros: regsLote } = useRegistros({ dataInicio: ini30, dataFim: hoje })
+  const { cqRegistros: cqLote } = useCQ({ dataInicio: ini30, dataFim: hoje })
 
   // Dias que o parceiro declarou e ainda não passaram pela revisão
   const diasPendentes = useMemo(() => {
@@ -60,7 +62,7 @@ export default function ControleCQ() {
     diasPendentes.forEach(r => { inicial[r.data] = { incluir: r.data < hoje, entregue: String(r.quantidade) } })
     setItens(inicial)
     setLote(l => ({ ...l, revisado: '' }))
-  }, [lote.funcId, diasPendentes.length, hoje])
+  }, [lote.funcId, diasPendentes.map(r => r.data).join(','), hoje])
 
   // Um monte contado junto ganha um identificador comum, para as linhas daqueles dias
   // continuarem se reconhecendo como o mesmo lote depois de gravadas
@@ -125,7 +127,7 @@ export default function ControleCQ() {
     pendentesEmb.forEach(c => { m[c.id] = true })
     setMarcadosEmb(m)
     setEmbLote(l => ({ ...l, displays: '', macos: '' }))
-  }, [embLote.funcId, pendentesEmb.length])
+  }, [embLote.funcId, pendentesEmb.map(c => c.id).join(',')])
 
   const embSelecionados = pendentesEmb.filter(c => marcadosEmb[c.id])
   const revisadoEmb = embSelecionados.reduce((s, c) => s + (c.revisada || 0), 0)
