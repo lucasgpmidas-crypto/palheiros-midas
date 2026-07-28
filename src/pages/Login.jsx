@@ -32,6 +32,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [funcionarios, setFuncionarios] = useState([])
   const [erro, setErro] = useState('')
+  // Funcionário travado pelo banco após erros seguidos: some o teclado do PIN
+  const [bloqueado, setBloqueado] = useState(false)
 
   const pinR0 = useRef(null)
   const pinR1 = useRef(null)
@@ -72,6 +74,7 @@ export default function Login() {
   const selecionar = (f) => {
     // Tocar em quem já está escolhido reabre a lista para trocar de pessoa
     if (String(f.id) === String(funcId) && !listaAberta) { setListaAberta(true); return }
+    setBloqueado(false)
     setFuncId(String(f.id))
     setListaAberta(false)
     setErro('')
@@ -82,6 +85,7 @@ export default function Login() {
   // A seta alterna a área; trocar de área desmarca quem estava escolhido
   const trocarSetor = (dir) => {
     setIdxSetor(i => (i + dir + SETORES.length) % SETORES.length)
+    setBloqueado(false)
     setFuncId('')
     setListaAberta(true)
     setPinDigits(['', '', '', ''])
@@ -107,7 +111,12 @@ export default function Login() {
       if (!funcId) { setErro('Selecione seu nome'); setLoading(false); return }
       if (pin.length < 4) { setErro('Digite os 4 dígitos do PIN'); setLoading(false); return }
       const r = await entrarFuncionario(Number(funcId), pin)
-      if (!r.ok) setErro(r.msg)
+      if (!r.ok) {
+        setErro(r.msg)
+        setBloqueado(!!r.bloqueado)
+        setPinDigits(['', '', '', ''])          // limpa para a próxima tentativa
+        if (!r.bloqueado) setTimeout(() => pinR0.current?.focus(), 60)
+      }
     }
     setLoading(false)
   }
@@ -198,7 +207,16 @@ export default function Login() {
                 )}
               </div>
 
-              {/* PIN fica na mesma tela, logo abaixo — sem repetir o nome de ninguém */}
+              {/* Travado: não adianta continuar digitando, então o teclado do PIN sai da tela */}
+              {bloqueado ? (
+                <div style={{ background:'rgba(232,64,64,.08)', border:'1px solid rgba(232,64,64,.35)', borderRadius:12, padding:'18px 16px', marginBottom:8 }}>
+                  <div style={{ fontSize:34, marginBottom:6 }}>🔒</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:'var(--red)', marginBottom:6 }}>Acesso bloqueado por segurança</div>
+                  <div style={{ fontSize:13, color:'var(--text2)', lineHeight:1.5 }}>
+                    {erro} Se você esqueceu o PIN, fale com o administrador — ele libera na hora.
+                  </div>
+                </div>
+              ) : (
               <div className="fg">
                 <label style={{ display:'block', textAlign:'center', marginBottom:10, color: funcId ? 'var(--gold-light)' : 'var(--text3)' }}>
                   {funcId ? 'Digite seu PIN' : 'Toque no seu nome acima'}
@@ -230,12 +248,13 @@ export default function Login() {
                   ))}
                 </div>
               </div>
+              )}
             </>
           )}
 
-          {erro && <div style={{ background:'rgba(232,64,64,.1)', border:'1px solid rgba(232,64,64,.3)', borderRadius:'var(--rs)', padding:'10px 14px', fontSize:12.5, color:'var(--red)', marginBottom:12 }}>{erro}</div>}
+          {erro && !bloqueado && <div style={{ background:'rgba(232,64,64,.1)', border:'1px solid rgba(232,64,64,.3)', borderRadius:'var(--rs)', padding:'10px 14px', fontSize:12.5, color:'var(--red)', marginBottom:12 }}>{erro}</div>}
 
-          <button type="submit" disabled={loading || (modo === 'func' && !funcId)}
+          <button type="submit" disabled={loading || (modo === 'func' && (!funcId || bloqueado))}
             style={{ width:'100%', marginTop:4, background:'linear-gradient(135deg,var(--gold-dark),var(--gold))', border:'none', borderRadius:'var(--rs)', padding:13, color:'#0D1018', fontSize:15, fontWeight:800, fontFamily:'Barlow Condensed,sans-serif', letterSpacing:1.5, cursor:(loading || (modo === 'func' && !funcId))?'not-allowed':'pointer', opacity:(loading || (modo === 'func' && !funcId))?.5:1 }}>
             {loading ? 'ENTRANDO...' : 'ENTRAR →'}
           </button>

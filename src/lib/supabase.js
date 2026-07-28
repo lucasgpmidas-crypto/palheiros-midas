@@ -36,7 +36,15 @@ export async function loginFuncionario(funcId, pin) {
   // tabela foi removido junto com migracao_pin_protegido.sql — a chave anon não tem
   // mais select nessa coluna, então ele só produziria erro e era o próprio vazamento.
   const { data, error } = await supabase.rpc('login_funcionario', { p_func_id: funcId, p_pin: String(pin) })
-  if (error) return { ok: false, msg: 'Erro ao validar PIN. Tente novamente.' }
+  if (error) {
+    // O banco trava o funcionário após N erros seguidos e devolve quantos segundos faltam
+    const bloqueio = /bloqueado:(\d+)/.exec(error.message || '')
+    if (bloqueio) {
+      const min = Math.max(1, Math.ceil(Number(bloqueio[1]) / 60))
+      return { ok: false, bloqueado: true, msg: `Muitas tentativas erradas. Tente de novo em ${min} ${min === 1 ? 'minuto' : 'minutos'}.` }
+    }
+    return { ok: false, msg: 'Erro ao validar PIN. Tente novamente.' }
+  }
 
   const f = Array.isArray(data) ? data[0] : data
   if (!f) return { ok: false, msg: 'PIN incorreto ou acesso não liberado' }

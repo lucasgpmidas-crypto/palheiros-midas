@@ -6,6 +6,11 @@ import toast from 'react-hot-toast'
 
 const FORM0 = { nome: '', entrada: getHoje(), meta_diaria: 3000, situacao: 'ativo', setor: 'producao', modalidade: 'cp', parceria_desde: '', padrinho_id: '', pin: '', obs: '' }
 
+// PIN de 4 dígitos tem 10.000 combinações, mas quem tenta invadir começa pelos
+// óbvios: repetições (0000) e sequências (1234 / 4321). Esses ficam barrados.
+const pinObvio = (p) =>
+  /^(\d)\1{3}$/.test(p) || '01234567890'.includes(p) || '09876543210'.includes(p)
+
 export default function Funcionarios() {
   const { funcionarios, loading, salvar } = useFuncionarios()
   const [modal, setModal] = useState(false)
@@ -26,6 +31,10 @@ export default function Funcionarios() {
 
   const handleSalvar = async () => {
     if (!form.nome.trim()) { toast.error('Informe o nome'); return }
+    if (form.pin) {
+      if (!/^\d{4}$/.test(form.pin)) { toast.error('O PIN precisa ter 4 dígitos'); return }
+      if (pinObvio(form.pin)) { toast.error('PIN fácil demais. Evite 1234, 0000 ou sequências — é o primeiro chute de quem tenta invadir.'); return }
+    }
     setSaving(true)
     const payload = {
       nome: form.nome.trim(), entrada: form.entrada, meta_diaria: Math.max(1, Number(form.meta_diaria) || 3000),
