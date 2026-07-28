@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useRegistros, useFuncionarios, useConfig } from '../lib/hooks'
-import { getHoje, fmtMoeda, fmtNum, fmtData, calcValor, pctMeta, corPct, isProducao } from '../lib/utils'
+import { fmtValorDia, getHoje, fmtMoeda, fmtNum, fmtData, calcValor, pctMeta, corPct, isProducao } from '../lib/utils'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
 
@@ -33,7 +33,7 @@ export default function Registro() {
     if (aprov && aprov > parseInt(form.qty)) return
     setSaving(true)
     const nomeFunc = ativos.find(f => f.id === Number(form.funcId))?.nome
-    const ok = await registrar({ funcId: Number(form.funcId), quantidade: parseInt(form.qty), aproveitado: aprov, data: dataReg, obs: form.obs, valorMil })
+    const ok = await registrar({ funcId: Number(form.funcId), quantidade: parseInt(form.qty), aproveitado: aprov, data: dataReg, obs: form.obs })
     if (ok) {
       setForm({ funcId: '', qty: '', aprov: '', obs: '' })
       setJustAdded(nomeFunc || 'Funcionário')
@@ -48,8 +48,9 @@ export default function Registro() {
     const qty = parseInt(editando.quantidade) || 0
     const aprov = parseInt(editando.aproveitado) || null
     if (aprov && aprov > qty) return
-    const valor = calcValor(aprov ?? qty, valorMil)
-    const ok = await atualizar(editando.id, { quantidade: qty, aproveitado: aprov, data: editando.data, obs: editando.obs || null, valor })
+    // Sem valor: quem define é a conferência. O trigger do banco reescreve o valor
+    // pelo entregue assim que a revisão daquele dia existir.
+    const ok = await atualizar(editando.id, { quantidade: qty, aproveitado: aprov, data: editando.data, obs: editando.obs || null, valor: null })
     if (ok) setEditando(null)
   }
 
@@ -62,6 +63,7 @@ export default function Registro() {
   const MEDALS = ['🥇', '🥈', '🥉']
   const total = regsData.reduce((s, r) => s + r.quantidade, 0)
   const valor = regsData.reduce((s, r) => s + (Number(r.valor) || 0), 0)
+  const semConfDia = regsData.filter(r => r.valor == null).length
 
   return (
     <div>
@@ -148,7 +150,7 @@ export default function Registro() {
                           <td style={{ color: r.aproveitado != null ? 'var(--green)' : 'var(--text3)' }}>{r.aproveitado != null ? fmtNum(r.aproveitado) + ' un.' : '—'}</td>
                           <td style={{ color: r.perda > 0 ? 'var(--red)' : 'var(--text3)' }}>{r.perda != null ? fmtNum(r.perda) + ' un.' : '—'}</td>
                           <td><span style={{ fontWeight: 700, color: r.taxa != null ? (r.taxa >= 90 ? 'var(--green)' : r.taxa >= 70 ? 'var(--amber)' : 'var(--red)') : 'var(--text3)' }}>{r.taxa != null ? r.taxa + '%' : '—'}</span></td>
-                          <td style={{ color: 'var(--green)' }}>{fmtMoeda(Number(r.valor))}</td>
+                          <td style={{ color: r.valor == null ? 'var(--text3)' : 'var(--green)' }}>{fmtValorDia(r.valor)}</td>
                           <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
                           <td style={{ color: 'var(--text3)' }}>{r.obs || '—'}</td>
                           <td>
@@ -174,7 +176,7 @@ export default function Registro() {
             <div className="fg"><label>Funcionário</label><input value={editando.func_nome || ''} readOnly /></div>
             <div className="fg"><label>Data</label><input type="date" value={editando.data} max={hoje} onChange={e => setEditando(v => ({ ...v, data: e.target.value }))} /></div>
             <div className="fg"><label>Qtd. Produzida</label><input type="number" min="0" value={editando.quantidade} onChange={e => setEditando(v => ({ ...v, quantidade: e.target.value }))} /></div>
-            <div className="fg"><label>Valor (auto)</label><input value={fmtMoeda(calcValor(parseInt(editando.aproveitado) || parseInt(editando.quantidade) || 0, valorMil))} readOnly /></div>
+            <div className="fg"><label>Valor</label><input value={editando.valor == null ? 'definido na conferência' : fmtMoeda(Number(editando.valor))} readOnly /></div>
             <div className="fg"><label>Qtd. Aproveitada</label><input type="number" min="0" placeholder="Opcional" value={editando.aproveitado || ''} onChange={e => setEditando(v => ({ ...v, aproveitado: e.target.value }))} /></div>
             <div className="fg"><label>Taxa</label><input value={editando.aproveitado && editando.quantidade ? Math.round(editando.aproveitado / editando.quantidade * 100) + '%' : '—'} readOnly /></div>
           </div>

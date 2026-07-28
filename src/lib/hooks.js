@@ -71,12 +71,15 @@ export function useRegistros(filtros = {}) {
 
   useEffect(() => { fetch() }, [fetch])
 
-  const registrar = async ({ funcId, quantidade, aproveitado, data, obs, valorMil }) => {
-    const valor = calcValor(aproveitado ?? quantidade, valorMil)
+  // O valor NÃO é calculado aqui. Quem paga é a conferência: enquanto o lote não for
+  // contado em Orlândia, o registro fica sem valor e as telas mostram "aguardando".
+  // Assim que a revisão entra, o trigger do banco preenche pelo ENTREGUE.
+  // Calcular aqui pelo declarado fazia o sistema exibir dinheiro que ninguém conferiu.
+  const registrar = async ({ funcId, quantidade, aproveitado, data, obs }) => {
     const { error } = await supabase
       .from('registros_producao')
       .upsert(
-        { func_id: funcId, quantidade, aproveitado: aproveitado || null, data, obs: obs || null, valor },
+        { func_id: funcId, quantidade, aproveitado: aproveitado || null, data, obs: obs || null, valor: null },
         { onConflict: 'func_id,data' }
       )
     if (error) { toast.error('Erro ao registrar: ' + error.message); return false }

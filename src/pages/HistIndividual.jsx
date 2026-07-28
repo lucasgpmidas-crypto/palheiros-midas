@@ -5,7 +5,7 @@ import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
-import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, exportCSV, isProducao } from '../lib/utils'
+import { fmtValorDia, getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, exportCSV, isProducao } from '../lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
@@ -60,7 +60,7 @@ export default function HistIndividual() {
         const pct = pctMeta(r.quantidade, f.meta_diaria)
         const perda = perdaPorData.get(r.data)
         const ent = entreguePorData.get(r.data)
-        return [fmtData(r.data), new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long' }), r.quantidade, ent ?? '—', ent != null ? r.quantidade - ent : '—', perda ?? '—', `R$${Number(r.valor).toFixed(2)}`, pct + '%', r.obs || '']
+        return [fmtData(r.data), new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long' }), r.quantidade, ent ?? '—', ent != null ? r.quantidade - ent : '—', perda ?? '—', r.valor == null ? 'aguardando conferência' : `R$${Number(r.valor).toFixed(2)}`, pct + '%', r.obs || '']
       })], `individual_${f.nome.replace(/\s+/g, '_')}_${periodo}d.csv`)
   }
 
@@ -172,7 +172,7 @@ export default function HistIndividual() {
                               : <span style={{ color: 'var(--green)', fontWeight: 700 }}>✓ 0</span>}
                           </td>
                           <td style={{ color: perda > 0 ? 'var(--red)' : 'var(--text3)' }}>{perda != null ? fmtNum(perda) + ' un.' : '—'}</td>
-                          <td style={{ color: 'var(--green)' }}>{fmtMoeda(Number(r.valor))}</td>
+                          <td style={{ color: r.valor == null ? 'var(--text3)' : 'var(--green)' }}>{fmtValorDia(r.valor)}</td>
                           <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
                           <td style={{ color: diff >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{(diff >= 0 ? '+' : '') + fmtNum(diff)}</td>
                           <td style={{ color: 'var(--text3)' }}>{r.obs || '—'}</td>

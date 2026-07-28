@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { subDays, format } from 'date-fns'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
-import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, exportCSV } from '../lib/utils'
+import { fmtValorDia, getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, exportCSV } from '../lib/utils'
 import ConfirmModal from '../components/ConfirmModal'
 
 export default function Historico() {
@@ -36,7 +36,7 @@ export default function Historico() {
        ...registros.map(r => {
          const pct = r.funcionarios?.meta_diaria ? pctMeta(r.quantidade, r.funcionarios.meta_diaria) : 0
          const ent = entregueDe(r)
-         return [fmtData(r.data), r.funcionarios?.nome, r.quantidade, ent ?? '—', ent != null ? r.quantidade - ent : '—', `R$${Number(r.valor).toFixed(2)}`, pct + '%', r.obs || '']
+         return [fmtData(r.data), r.funcionarios?.nome, r.quantidade, ent ?? '—', ent != null ? r.quantidade - ent : '—', r.valor == null ? 'aguardando conferência' : `R$${Number(r.valor).toFixed(2)}`, pct + '%', r.obs || '']
        })],
       `historico_${aplicados.dataInicio}_${aplicados.dataFim}.csv`
     )
@@ -90,7 +90,7 @@ export default function Historico() {
                               : difR < 0 ? <strong style={{ color: 'var(--amber)' }}>+{fmtNum(-difR)} un.</strong>
                               : <span style={{ color: 'var(--green)', fontWeight: 700 }}>✓ 0</span>}
                           </td>
-                          <td style={{ color: 'var(--green)' }}>{fmtMoeda(Number(r.valor))}</td>
+                          <td style={{ color: r.valor == null ? 'var(--text3)' : 'var(--green)' }}>{fmtValorDia(r.valor)}</td>
                           <td><span style={{ color: corPct(pct), fontWeight: 700 }}>{pct}%</span></td>
                           <td style={{ color: 'var(--text3)' }}>{r.obs || '—'}</td>
                           <td><button className="btn btn-danger btn-xs" onClick={() => setConfirmDel(r)}>🗑</button></td>

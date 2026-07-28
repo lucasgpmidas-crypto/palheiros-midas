@@ -6,6 +6,12 @@ export const calcValor = (qty, valorMil) => ((qty || 0) / 1000) * (valorMil || 7
 export const fmtMoeda = (v) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v ?? 0)
 
+// Valor de um dia só existe depois que o lote foi conferido. Sem conferência não há
+// número a mostrar — mostrar o declarado faria o funcionário contar com dinheiro que
+// ainda não foi contado, e a regra do programa paga o entregue.
+export const fmtValorDia = (v) =>
+  v == null || v === '' ? '⏳ aguardando conferência' : fmtMoeda(v)
+
 export const fmtNum = (n) =>
   new Intl.NumberFormat('pt-BR').format(Math.round(n ?? 0))
 

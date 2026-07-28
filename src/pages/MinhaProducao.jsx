@@ -6,7 +6,7 @@ import { ptBR } from 'date-fns/locale'
 import { useRegistros, useFuncionarios, useConfig, useCQ, useApuracaoPremios, usePremios } from '../lib/hooks'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, ultimosDias, calcValor, statusConferencia, getQuinzenaAtual, calcParceria, fmtMilheiros, corQualidade, getFaixasProdutividade } from '../lib/utils'
+import { getHoje, fmtMoeda, fmtValorDia, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, ultimosDias, calcValor, statusConferencia, getQuinzenaAtual, calcParceria, fmtMilheiros, corQualidade, getFaixasProdutividade } from '../lib/utils'
 import Modal from '../components/Modal'
 import toast from 'react-hot-toast'
 
@@ -65,7 +65,7 @@ export default function MinhaProducao() {
     const q = parseInt(qtd)
     if (!q || q <= 0) { toast.error('Informe a quantidade produzida'); return }
     setSaving(true)
-    const ok = await registrar({ funcId, quantidade: q, data: hoje, obs, valorMil })
+    const ok = await registrar({ funcId, quantidade: q, data: hoje, obs })
     if (ok) { setQtd(''); setObs(''); await refetchMeus() }
     setSaving(false)
   }
@@ -104,7 +104,9 @@ export default function MinhaProducao() {
   const meusPremios = premios.filter(p => p.func_id === funcId)
 
   const total30  = meusRegs.reduce((s, r) => s + r.quantidade, 0)
+  // Só entra na soma o que já foi conferido — o resto ainda não é dinheiro
   const valor30  = meusRegs.reduce((s, r) => s + Number(r.valor || 0), 0)
+  const diasSemConf = meusRegs.filter(r => r.valor == null).length
   const media30  = meusRegs.length ? Math.round(total30 / meusRegs.length) : 0
   const diasMeta = f ? meusRegs.filter(r => r.quantidade >= f.meta_diaria).length : 0
 
@@ -195,7 +197,9 @@ export default function MinhaProducao() {
             ? <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 11, color: 'var(--text3)' }}>Produção de hoje</div>
                 <div style={{ fontFamily: 'Barlow Condensed,sans-serif', fontSize: 32, fontWeight: 800, color: corPct(f ? pctMeta(meuHoje.quantidade, f.meta_diaria) : 0) }}>{fmtNum(meuHoje.quantidade)}</div>
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>unidades · {fmtMoeda(Number(meuHoje.valor))}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                  unidades · {meuHoje.valor == null ? '⏳ a conferir' : fmtMoeda(Number(meuHoje.valor))}
+                </div>
               </div>
             : <div style={{ fontSize: 13, color: 'var(--amber)' }}>⚠️ Sem registro hoje</div>
           }
@@ -274,7 +278,7 @@ export default function MinhaProducao() {
         <div className="stat-card sc-green">
           <div className="stat-label">Valor 30 Dias</div>
           <div className="stat-value sv-green" style={{ fontSize: 20 }}>{fmtMoeda(valor30)}</div>
-          <div className="stat-sub">{fmtNum(total30)} un. produzidas</div>
+          <div className="stat-sub">{fmtNum(total30)} un. produzidas{diasSemConf > 0 ? ` · ${diasSemConf} ${diasSemConf === 1 ? 'dia aguarda' : 'dias aguardam'} conferência` : ''}</div>
         </div>
         <div className="stat-card sc-blue">
           <div className="stat-label">Média Diária</div>
@@ -486,7 +490,7 @@ export default function MinhaProducao() {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontFamily: 'Barlow Condensed,sans-serif', fontSize: 18, fontWeight: 800, color: isMe ? 'var(--gold-light)' : 'var(--text2)' }}>{fmtNum(r.quantidade)}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{fmtMoeda(Number(r.valor))}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{r.valor == null ? '⏳ a conferir' : fmtMoeda(Number(r.valor))}</div>
                     </div>
                   </div>
                 )
@@ -528,7 +532,7 @@ export default function MinhaProducao() {
                         <td style={{ color: 'var(--text3)' }}>{new Date(r.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short' })}</td>
                         <td><strong style={{ color: 'var(--text)' }}>{fmtNum(r.quantidade)} un.</strong></td>
                         <td style={{ color: 'var(--green)' }}>
-                          {fmtMoeda(Number(r.valor))}{' '}
+                          {r.valor == null ? <span style={{ color: 'var(--text3)' }}>⏳ a conferir</span> : fmtMoeda(Number(r.valor))}{' '}
                           {c.temCQ
                             ? <span title="Dia conferido — o valor final segue a faixa da quinzena (veja Minha Parceria)" style={{ fontSize: 11 }}>✔</span>
                             : <span title="Estimativa — o valor final depende da conferência e da faixa da quinzena" style={{ fontSize: 11, color: 'var(--text3)' }}>⏳</span>}
