@@ -22,6 +22,8 @@ const Conferencia    = lazy(() => import('./pages/Conferencia'))
 const Estoque        = lazy(() => import('./pages/Estoque'))
 const Fechamento     = lazy(() => import('./pages/Fechamento'))
 const Premios        = lazy(() => import('./pages/Premios'))
+const Painel         = lazy(() => import('./pages/Painel'))
+const Indicadores    = lazy(() => import('./pages/Indicadores'))
 
 // Página inicial do funcionário conforme o setor
 const funcHome = (funcSession) => funcSession?.setor === 'finalizacao' ? '/cq' : '/minha-producao'
@@ -52,6 +54,9 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={isLogado ? <Navigate to={home} replace /> : <Login />} />
 
+      {/* Painel da TV: tela cheia, sem menu — qualquer pessoa logada pode deixar aberto */}
+      <Route path="/painel" element={<ProtectedRoute><Painel /></ProtectedRoute>} />
+
       <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         {/* Admin routes */}
         <Route index element={<ProtectedRoute adminOnly><Dashboard /></ProtectedRoute>} />
@@ -64,6 +69,7 @@ function AppRoutes() {
         <Route path="fechamento"    element={<ProtectedRoute adminOnly><Fechamento /></ProtectedRoute>} />
         <Route path="premios"       element={<ProtectedRoute adminOnly><Premios /></ProtectedRoute>} />
         <Route path="relatorios"    element={<ProtectedRoute adminOnly><Relatorios /></ProtectedRoute>} />
+        <Route path="indicadores"   element={<ProtectedRoute adminOnly><Indicadores /></ProtectedRoute>} />
         <Route path="configuracoes" element={<ProtectedRoute adminOnly><Configuracoes /></ProtectedRoute>} />
 
         {/* Revisão & Empacotamento (admin + setor finalização) */}

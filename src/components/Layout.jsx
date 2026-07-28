@@ -17,12 +17,14 @@ const ADMIN_NAV = [
   { to: '/estoque',       icon: '🚚', label: 'Estoque & Expedição' },
   { to: '/funcionarios',  icon: '👥', label: 'Funcionários' },
   { to: '/premios',       icon: '🏅', label: 'Prêmios' },
+  { to: '/painel',        icon: '📺', label: 'Painel da TV' },
   { to: '/alertas',       icon: '🔔', label: 'Alertas' },
   { section: 'Históricos' },
   { to: '/hist-individual', icon: '👤', label: 'Individual' },
   { to: '/hist-equipe',     icon: '👥', label: 'Equipe' },
   { section: 'Relatórios' },
   { to: '/relatorios',    icon: '📄', label: 'Relatórios' },
+  { to: '/indicadores',   icon: '📊', label: 'Indicadores' },
   { to: '/fechamento',    icon: '🔒', label: 'Fechamento & Auditoria' },
 ]
 
@@ -69,10 +71,12 @@ const PAGE_TITLES = {
   '/fechamento':      'Fechamento & Auditoria',
   '/funcionarios':    'Funcionários',
   '/premios':         'Prêmios do Programa',
+  '/painel':          'Painel da TV',
   '/alertas':         'Alertas',
   '/hist-individual': 'Histórico Individual',
   '/hist-equipe':     'Histórico da Equipe',
   '/relatorios':      'Relatórios',
+  '/indicadores':     'Indicadores do Programa',
   '/minha-producao':  'Minha Produção',
   '/configuracoes':   'Configurações',
 }
