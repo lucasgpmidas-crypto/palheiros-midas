@@ -257,7 +257,7 @@ export default function MinhaProducao() {
         <div className="stat-card sc-green">
           <div className="stat-label">💵 Quinzena Atual</div>
           <div className="stat-value sv-green" style={{ fontSize: 22 }}>{fmtMoeda(totalQzReceber)}</div>
-          <div className="stat-sub">{fmtMilheiros(parceria.milheiros)} milheiros aprovados · {fmtData(qz.inicio, 'dd/MM')} a {fmtData(qz.fim, 'dd/MM')}</div>
+          <div className="stat-sub">{fmtMilheiros(parceria.milheiros)} milheiros conferidos · {fmtData(qz.inicio, 'dd/MM')} a {fmtData(qz.fim, 'dd/MM')}</div>
           <div className="stat-sub" style={{ marginTop: 2 }}>
             {totalQz === 0 ? 'sem produção ainda'
               : aguardandoQz > 0 ? <>⏳ {fmtNum(aguardandoQz)} un. aguardam conferência</>

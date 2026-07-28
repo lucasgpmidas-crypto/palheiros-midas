@@ -101,7 +101,9 @@ export default function ControleCQ() {
       {/* Formulário */}
       <div className="card mb16">
         <div className="card-title">📦 Registrar Revisão (contagem, maços e descarte)</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.6fr 1fr 1fr 0.7fr', gap: 10, alignItems: 'flex-end', marginBottom: 10 }}>
+        {/* auto-fit em vez de 6 colunas fixas: no celular os campos quebram em linhas
+            em vez de sair pela borda — a revisão é lançada no chão de fábrica */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 10, alignItems: 'flex-end', marginBottom: 10 }}>
           {[
             { label: 'Funcionário', el: <select value={form.funcId} onChange={e => setF('funcId', e.target.value)}><option value="">Selecionar...</option>{ativos.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}</select> },
             { label: 'Data', el: <input type="date" value={form.data} max={hoje} onChange={e => setF('data', e.target.value)} /> },
