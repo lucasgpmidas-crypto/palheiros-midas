@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './lib/auth'
 import Layout from './components/Layout'
+import ErroTela from './components/ErroTela'
 import Login from './pages/Login'
 
 // Cada tela vira um arquivo separado, baixado só quando é aberta —
@@ -91,7 +92,12 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        {/* O Layout tem o seu próprio limite de erro, por tela. Este aqui é o de
+            fora: pega o que quebrar no login, no painel da TV ou no próprio Layout,
+            que ficariam sem nenhuma rede. */}
+        <ErroTela>
+          <AppRoutes />
+        </ErroTela>
         <Toaster
           position="bottom-right"
           toastOptions={{

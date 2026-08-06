@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useAlertasProativos } from '../lib/alertas'
+import { useConfig } from '../lib/hooks'
 import { getIniciais, avatarCor } from '../lib/utils'
+import ErroTela from './ErroTela'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -87,6 +89,7 @@ export default function Layout() {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { total: totalAlertas, criticos } = useAlertasProativos(isAdmin)
+  const { cfgStatus } = useConfig()
 
   const nav = isAdmin ? ADMIN_NAV : isFinalizacao ? FIN_NAV : FUNC_NAV
   const bottomNav = isAdmin ? BOTTOM_ADMIN : isFinalizacao ? BOTTOM_FIN : BOTTOM_FUNC
@@ -185,7 +188,24 @@ export default function Layout() {
         </header>
 
         <div className="content">
-          <Outlet />
+          {/* Os valores de dinheiro vêm da tabela de configurações. Se ela não
+              carregar, as telas caem nos números escritos no código e mostrariam
+              preço errado com cara de certo — então o aviso fica visível em todas. */}
+          {cfgStatus === 'erro' && (
+            <div className="alert a-danger">
+              <div style={{ fontSize: 17 }}>⚠️</div>
+              <div>
+                <strong>Não consegui carregar os parâmetros do sistema</strong>
+                <span>
+                  Os valores em reais desta tela podem não ser os atuais. Verifique a conexão e
+                  recarregue a página antes de usar qualquer número para pagamento.
+                </span>
+              </div>
+            </div>
+          )}
+          <ErroTela key={location.pathname}>
+            <Outlet />
+          </ErroTela>
         </div>
 
         {/* Barra inferior — só aparece no celular (CSS) */}
