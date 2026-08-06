@@ -148,8 +148,8 @@ export default function Funcionarios() {
           </div>
           <div className="fg" style={{ background: 'rgba(201,162,39,.06)', border: '1px solid rgba(201,162,39,.2)', borderRadius: 'var(--rs)', padding: 12 }}>
             <label style={{ color: 'var(--gold-light)' }}>🔑 PIN de Acesso (4 dígitos)</label>
-            <input type="password" maxLength={4} inputMode="numeric" placeholder={editId ? 'Deixe em branco para não alterar' : 'Ex: 1234'} value={form.pin} onChange={e => setF('pin', e.target.value)} style={{ width: 160, letterSpacing: 6, fontSize: 18, textAlign: 'center' }} />
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>O funcionário usa este PIN para acessar o sistema</div>
+            <input type="password" maxLength={4} inputMode="numeric" placeholder={editId ? 'Deixe em branco para não alterar' : '4 dígitos'} value={form.pin} onChange={e => setF('pin', e.target.value)} style={{ width: 160, letterSpacing: 6, fontSize: 18, textAlign: 'center' }} />
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>O funcionário usa este PIN para acessar o sistema. Depois de salvo ele não pode ser consultado por ninguém — se o funcionário esquecer, defina um novo aqui.</div>
           </div>
           <div className="fg"><label>Observações</label><textarea value={form.obs} onChange={e => setF('obs', e.target.value)} placeholder="Observações..." /></div>
           <div style={{ display: 'flex', gap: 10 }}>
