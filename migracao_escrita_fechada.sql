@@ -378,37 +378,9 @@ grant execute on function editar_revisao(text, bigint, date, text, text, int, in
 
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- 5) FECHAR A PORTA  ← só depois do teste acima
+-- 5) FECHAR A PORTA  →  foi para migracao_passo_final.sql
 -- ═══════════════════════════════════════════════════════════════════════════
--- Produção e conferência: a chave pública passa a só LER.
-drop policy if exists "anon_registros_w" on registros_producao;
-drop policy if exists "anon_cq_w" on controle_qualidade;
-revoke insert, update, delete on registros_producao from anon;
-revoke insert, update, delete on controle_qualidade from anon;
-
--- Estoque e fechamento de folha: telas exclusivas do admin. As regras foram
--- criadas sem dizer a quem se aplicam, e regra sem destinatário vale para todos.
-drop policy if exists "expedicoes_select" on expedicoes;
-drop policy if exists "expedicoes_insert" on expedicoes;
-drop policy if exists "expedicoes_update" on expedicoes;
-drop policy if exists "expedicoes_delete" on expedicoes;
-create policy "expedicoes_leitura"  on expedicoes for select using (true);
-create policy "expedicoes_escrita"  on expedicoes for all    to authenticated using (true) with check (true);
-revoke insert, update, delete on expedicoes from anon;
-
-drop policy if exists "fechamentos_select" on fechamentos;
-drop policy if exists "fechamentos_insert" on fechamentos;
-drop policy if exists "fechamentos_update" on fechamentos;
-create policy "fechamentos_leitura" on fechamentos for select using (true);
-create policy "fechamentos_escrita" on fechamentos for all    to authenticated using (true) with check (true);
-revoke insert, update, delete on fechamentos from anon;
-
--- ═══════════════════════════════════════════════════════════════════════════
--- Conferência: o que a chave pública ainda pode fazer
--- ═══════════════════════════════════════════════════════════════════════════
-select table_name, privilege_type
-  from information_schema.role_table_grants
- where grantee = 'anon'
-   and table_name in ('registros_producao','controle_qualidade','expedicoes','fechamentos','funcionarios','premios','configuracoes')
- order by table_name, privilege_type;
--- Esperado: apenas SELECT em cada uma delas.
+-- O bloco que revoga a escrita da chave pública saiu daqui em 06/08/2026 para
+-- não ficar no meio de um arquivo já aplicado, onde correria o risco de rodar
+-- cedo demais. Ele agora vive em `migracao_passo_final.sql`, junto com o resto
+-- do fechamento (tranca das sessões, cortes da quinzena e limpeza).
