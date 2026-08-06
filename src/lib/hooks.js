@@ -1,7 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { supabase } from './supabase'
+import { supabase, buscarPaginado } from './supabase'
+import { getFuncToken } from './auth'
 import { calcValor, getQuinzenasAno, getQuinzenasDesde, resumoPeriodo, calcQualificacao, calcPremiosAnuais, isProducao, getHoje } from './utils'
 import toast from 'react-hot-toast'
+
+// As funções de gravação do banco recusam quem não tem sessão válida. Para quem
+// está usando, "sessao_invalida" não quer dizer nada — o que aconteceu é que o
+// acesso caiu e é preciso entrar de novo.
+const traduzErro = (error) => {
+  const msg = error?.message || ''
+  if (msg.includes('sessao_invalida')) return 'Seu acesso expirou. Entre de novo com seu PIN.'
+  return msg || 'erro desconhecido'
+}
 
 // ── Funcionários ──────────────────────────────────────────────────────────────
 export function useFuncionarios() {
@@ -26,18 +36,33 @@ export function useFuncionarios() {
   useEffect(() => { fetch() }, [fetch])
 
   const salvar = async (payload, id = null) => {
-    const row = { ...payload }
-    if (!row.pin) delete row.pin // não sobrescreve PIN se vazio
+    // O PIN nunca vai junto com o resto: a tabela guarda só o hash, e quem calcula
+    // o hash é o banco (RPC definir_pin). Aqui ele é separado do payload e enviado
+    // depois, para o cadastro em si não carregar o número em nenhum momento.
+    const { pin, ...row } = payload
+    let funcId = id
 
     if (id) {
       const { error } = await supabase.from('funcionarios').update(row).eq('id', id)
       if (error) { toast.error('Erro ao atualizar'); return false }
-      toast.success('Funcionário atualizado!')
     } else {
-      const { error } = await supabase.from('funcionarios').insert(row)
+      const { data: novo, error } = await supabase.from('funcionarios').insert(row).select('id').single()
       if (error) { toast.error('Erro ao cadastrar'); return false }
-      toast.success('Funcionário cadastrado!')
+      funcId = novo?.id
     }
+
+    if (pin) {
+      const { error } = await supabase.rpc('definir_pin', { p_func_id: funcId, p_pin: String(pin) })
+      if (error) {
+        // O cadastro já foi gravado; só o PIN falhou — dizer exatamente isso evita
+        // que se pense que o funcionário não foi salvo.
+        toast.error('Cadastro salvo, mas o PIN não foi definido: ' + (error.message || 'erro desconhecido'))
+        await fetch()
+        return false
+      }
+    }
+
+    toast.success(id ? 'Funcionário atualizado!' : 'Funcionário cadastrado!')
     await fetch()
     return true
   }
@@ -76,13 +101,24 @@ export function useRegistros(filtros = {}) {
   // Assim que a revisão entra, o trigger do banco preenche pelo ENTREGUE.
   // Calcular aqui pelo declarado fazia o sistema exibir dinheiro que ninguém conferiu.
   const registrar = async ({ funcId, quantidade, aproveitado, data, obs }) => {
-    const { error } = await supabase
-      .from('registros_producao')
-      .upsert(
-        { func_id: funcId, quantidade, aproveitado: aproveitado || null, data, obs: obs || null, valor: null },
-        { onConflict: 'func_id,data' }
-      )
-    if (error) { toast.error('Erro ao registrar: ' + error.message); return false }
+    const token = getFuncToken()
+
+    // Dois caminhos, porque são duas autoridades diferentes. O admin entra pelo
+    // Supabase Auth e grava direto, com data e funcionário à escolha (é ele quem
+    // corrige lançamento antigo). O funcionário grava pela função do banco, que
+    // resolve quem ele é pelo token: sempre ele mesmo, sempre hoje.
+    const { error } = token
+      ? await supabase.rpc('registrar_producao', {
+          p_token: token, p_quantidade: quantidade, p_obs: obs || null,
+        })
+      : await supabase
+          .from('registros_producao')
+          .upsert(
+            { func_id: funcId, quantidade, aproveitado: aproveitado || null, data, obs: obs || null, valor: null },
+            { onConflict: 'func_id,data' }
+          )
+
+    if (error) { toast.error('Erro ao registrar: ' + traduzErro(error)); return false }
     toast.success(data === new Date().toISOString().split('T')[0] ? '✓ Produção registrada!' : '✓ Registro salvo!')
     await fetch()
     return true
@@ -132,9 +168,15 @@ export function useCQ(filtros = {}) {
 
   useEffect(() => { fetch() }, [fetch])
 
+  // Nas quatro gravações abaixo vale a mesma divisão do registro de produção: o
+  // admin escreve direto na tabela; a revisadora, que entra por PIN, escreve pelas
+  // funções do banco, que conferem o token e assinam o lançamento com o nome dela.
   const registrar = async (payload) => {
-    const { error } = await supabase.from('controle_qualidade').insert(payload)
-    if (error) { toast.error('Erro ao registrar CQ: ' + error.message); return false }
+    const token = getFuncToken()
+    const { error } = token
+      ? await supabase.rpc('registrar_revisao', { p_token: token, p_itens: [payload] })
+      : await supabase.from('controle_qualidade').insert(payload)
+    if (error) { toast.error('Erro ao registrar CQ: ' + traduzErro(error)); return false }
     toast.success('✓ CQ registrado!')
     await fetch()
     return true
@@ -143,16 +185,41 @@ export function useCQ(filtros = {}) {
   // Um lote revisado de uma vez costuma cobrir vários dias de produção. Grava uma
   // linha por dia numa tacada só, para a conferência diária continuar batendo.
   const registrarVarios = async (payloads) => {
-    const { error } = await supabase.from('controle_qualidade').insert(payloads)
-    if (error) { toast.error('Erro ao registrar o lote: ' + error.message); return false }
+    const token = getFuncToken()
+    const { error } = token
+      ? await supabase.rpc('registrar_revisao', { p_token: token, p_itens: payloads })
+      : await supabase.from('controle_qualidade').insert(payloads)
+    if (error) { toast.error('Erro ao registrar o lote: ' + traduzErro(error)); return false }
     toast.success(`✓ ${payloads.length} ${payloads.length === 1 ? 'dia registrado' : 'dias registrados'}!`)
     await fetch()
     return true
   }
 
+  // Serve a dois usos na tela: completar a embalagem de um dia (display/maços) e
+  // corrigir os números de um lançamento. São funções diferentes no banco, e o que
+  // distingue é o que veio no payload.
   const atualizar = async (id, payload) => {
-    const { error } = await supabase.from('controle_qualidade').update(payload).eq('id', id)
-    if (error) { toast.error('Erro ao atualizar: ' + error.message); return false }
+    const token = getFuncToken()
+    const ehEmbalagem = 'registrado_por_display' in payload
+
+    let error
+    if (!token) {
+      ({ error } = await supabase.from('controle_qualidade').update(payload).eq('id', id))
+    } else if (ehEmbalagem) {
+      ({ error } = await supabase.rpc('registrar_embalagem', {
+        p_token: token,
+        p_itens: [{ id, display: payload.display, macos: payload.macos, embalado_em: payload.embalado_em || null }],
+      }))
+    } else {
+      ({ error } = await supabase.rpc('editar_revisao', {
+        p_token: token, p_id: id,
+        p_data: payload.data, p_os: payload.os || null, p_tipo: payload.tipo || null,
+        p_entregue: payload.entregue, p_revisada: payload.revisada,
+        p_display: payload.display ?? null, p_macos: payload.macos ?? null, p_obs: payload.obs || null,
+      }))
+    }
+
+    if (error) { toast.error('Erro ao atualizar: ' + traduzErro(error)); return false }
     toast.success('CQ atualizado!')
     await fetch()
     return true
@@ -160,12 +227,23 @@ export function useCQ(filtros = {}) {
 
   // A embalagem também é feita de uma vez para vários dias do mesmo parceiro
   const atualizarVarios = async (itens) => {
-    const erros = []
-    for (const { id, ...campos } of itens) {
-      const { error } = await supabase.from('controle_qualidade').update(campos).eq('id', id)
-      if (error) erros.push(error.message)
+    const token = getFuncToken()
+
+    if (token) {
+      const { error } = await supabase.rpc('registrar_embalagem', {
+        p_token: token,
+        p_itens: itens.map(({ id, display, macos, embalado_em }) => ({ id, display, macos, embalado_em: embalado_em || null })),
+      })
+      if (error) { toast.error('Erro ao gravar a embalagem: ' + traduzErro(error)); await fetch(); return false }
+    } else {
+      const erros = []
+      for (const { id, ...campos } of itens) {
+        const { error } = await supabase.from('controle_qualidade').update(campos).eq('id', id)
+        if (error) erros.push(error.message)
+      }
+      if (erros.length) { toast.error('Erro ao gravar a embalagem: ' + erros[0]); await fetch(); return false }
     }
-    if (erros.length) { toast.error('Erro ao gravar a embalagem: ' + erros[0]); await fetch(); return false }
+
     toast.success(`✓ Embalagem de ${itens.length} ${itens.length === 1 ? 'dia' : 'dias'} registrada!`)
     await fetch()
     return true
@@ -179,14 +257,19 @@ export function useCQ(filtros = {}) {
     return true
   }
 
-  // Enrolador contesta a revisão de um dia (marca todos os registros CQ dele naquela data)
+  // Enrolador contesta a revisão de um dia (marca todos os registros CQ dele naquela
+  // data). Pela função do banco, o dia contestado é sempre de quem está logado —
+  // o func_id que a tela passa serve só para o admin, que escreve direto.
   const contestar = async (funcId, dataDia, motivo) => {
-    const { error } = await supabase
-      .from('controle_qualidade')
-      .update({ contestacao: motivo, contestada_em: new Date().toISOString(), contestacao_status: 'aberta' })
-      .eq('func_id', funcId)
-      .eq('data', dataDia)
-    if (error) { toast.error('Erro ao enviar contestação'); return false }
+    const token = getFuncToken()
+    const { error } = token
+      ? await supabase.rpc('contestar_revisao', { p_token: token, p_data: dataDia, p_motivo: motivo })
+      : await supabase
+          .from('controle_qualidade')
+          .update({ contestacao: motivo, contestada_em: new Date().toISOString(), contestacao_status: 'aberta' })
+          .eq('func_id', funcId)
+          .eq('data', dataDia)
+    if (error) { toast.error('Erro ao enviar contestação: ' + traduzErro(error)); return false }
     toast.success('⚑ Contestação enviada ao administrador!')
     await fetch()
     return true
@@ -356,19 +439,6 @@ export function usePremios() {
   return { premios: data, loading, refetch: fetch, conceder, atualizar, excluir }
 }
 
-// Um ano de conferências passa fácil do limite de linhas por requisição do
-// PostgREST — sem paginar, a apuração anual sairia truncada (e menor) em silêncio.
-const buscarPaginado = async (build, pageSize = 1000) => {
-  const out = []
-  for (let p = 0; ; p++) {
-    const { data, error } = await build().range(p * pageSize, p * pageSize + pageSize - 1)
-    if (error) throw error
-    out.push(...(data || []))
-    if (!data || data.length < pageSize) break
-  }
-  return out
-}
-
 // Apuração dos prêmios: quebra o histórico de conferência em quinzenas e aplica
 // as regras do programa. Base é sempre o APROVADO (revisada), igual ao pagamento.
 // A janela buscada é o ano + as 6 quinzenas de qualificação de cada parceiro,
@@ -473,7 +543,7 @@ const CFG_KEYS = {
 
 export function useConfig() {
   const [cfg, setCfg] = useState({
-    valorMil: 75, uniDisplay: 200, uniMaco: 20, tolerancia: 2, quinzenaD1: 9, quinzenaD2: 24, diasSemRevisao: 2, estoqueMinimo: 0,
+    valorMil: 75, uniDisplay: 200, uniMaco: 20, tolerancia: 2, quinzenaD1: 8, quinzenaD2: 24, diasSemRevisao: 2, estoqueMinimo: 0,
     faixaMinInter: 11, faixaMinPrem: 18,
     faixaCpBase: 85, faixaCpInter: 90, faixaCpPrem: 95,
     faixaExtBase: 85, faixaExtInter: 88, faixaExtPrem: 90,
@@ -484,10 +554,19 @@ export function useConfig() {
     premioFidMin: 250, premioQualAnual: 500, premioQualMin: 200,
   })
 
+  // Os valores acima são só o ponto de partida até o banco responder. Quem manda é
+  // a tabela `configuracoes`: preço do milheiro, faixas, corte da quinzena. Se a
+  // busca falhar e ninguém avisar, a tela segue exibindo dinheiro calculado com
+  // número de fábrica — certinha por fora e errada por dentro. Daí este status:
+  // 'carregando' → 'ok' | 'erro', com o aviso aparecendo no Layout.
+  const [status, setStatus] = useState('carregando')
+
   useEffect(() => {
+    let cancelado = false
     supabase.from('configuracoes').select('chave, valor').in('chave', Object.keys(CFG_KEYS))
-      .then(({ data }) => {
-        if (!data?.length) return
+      .then(({ data, error }) => {
+        if (cancelado) return
+        if (error || !data) { setStatus('erro'); return }
         setCfg(c => {
           const next = { ...c }
           data.forEach(({ chave, valor }) => {
@@ -496,19 +575,22 @@ export function useConfig() {
           })
           return next
         })
+        setStatus('ok')
       })
+    return () => { cancelado = true }
   }, [])
 
   const salvarConfig = async (chave, valor) => {
-    await supabase.from('configuracoes')
+    const { error } = await supabase.from('configuracoes')
       .upsert({ chave, valor: String(valor) }, { onConflict: 'chave' })
+    if (error) { toast.error('Não foi possível salvar: ' + error.message); return false }
     setCfg(c => ({ ...c, [CFG_KEYS[chave]]: Number(valor) }))
+    return true
   }
 
   const salvarValorMil = async (v) => {
-    await salvarConfig('valor_mil', v)
-    toast.success('Valor atualizado!')
+    if (await salvarConfig('valor_mil', v)) toast.success('Valor atualizado!')
   }
 
-  return { ...cfg, salvarValorMil, salvarConfig }
+  return { ...cfg, cfgStatus: status, salvarValorMil, salvarConfig }
 }
