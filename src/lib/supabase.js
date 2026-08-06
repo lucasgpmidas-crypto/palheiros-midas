@@ -11,6 +11,23 @@ export const supabase = createClient(url || '', key || '')
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+// O PostgREST devolve no máximo mil linhas por chamada e NÃO avisa quando corta:
+// a resposta vem com 200 e menos dados. Toda consulta que possa passar disso — um
+// ano de produção, a tabela de conferência inteira — precisa vir por aqui, senão a
+// conta sai menor em silêncio.
+// `build` monta a consulta do zero a cada página (o builder do supabase-js não pode
+// ser reaproveitado depois de executado).
+export async function buscarPaginado(build, pageSize = 1000) {
+  const out = []
+  for (let p = 0; ; p++) {
+    const { data, error } = await build().range(p * pageSize, p * pageSize + pageSize - 1)
+    if (error) throw error
+    out.push(...(data || []))
+    if (!data || data.length < pageSize) break
+  }
+  return out
+}
+
 export const VALOR_MIL_DEFAULT = 75
 
 export async function getConfig(chave) {
@@ -48,7 +65,13 @@ export async function loginFuncionario(funcId, pin) {
 
   const f = Array.isArray(data) ? data[0] : data
   if (!f) return { ok: false, msg: 'PIN incorreto ou acesso não liberado' }
-  return { ok: true, funcionario: { id: f.id, nome: f.nome, setor: f.setor || 'producao' } }
+  // O token é a credencial da sessão: é ele que autoriza as gravações do
+  // funcionário, que não escreve mais direto nas tabelas.
+  return { ok: true, funcionario: { id: f.id, nome: f.nome, setor: f.setor || 'producao', token: f.token } }
+}
+
+export async function encerrarSessaoFunc(token) {
+  if (token) await supabase.rpc('encerrar_sessao', { p_token: token })
 }
 
 export async function logout() {

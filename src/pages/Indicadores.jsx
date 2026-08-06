@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useFuncionarios, useConfig, useApuracaoPremios } from '../lib/hooks'
-import { supabase } from '../lib/supabase'
+import { supabase, buscarPaginado } from '../lib/supabase'
 import {
   fmtMoeda, fmtNum, fmtData, fmtMilheiros, corQualidade, exportCSV, exportXLSX,
 } from '../lib/utils'
@@ -26,14 +26,19 @@ export default function Indicadores() {
   const [ano, setAno] = useState(anoAtual)
   const { linhas, quinzenasAno, loading } = useApuracaoPremios({ ano, funcionarios, cfg })
 
-  // Dias com produção declarada — base da ajuda de custo do parceiro CP
+  // Dias com produção declarada — base da ajuda de custo do parceiro CP.
+  // Um ano da equipe inteira passa de mil linhas com folga (uma por parceiro por
+  // dia), e o corte viria sem aviso: quinzenas apareceriam com menos ajuda de custo
+  // do que a paga. Por isso a busca é paginada.
   const [dias, setDias] = useState([])
   useEffect(() => {
     if (!quinzenasAno.length) return
-    supabase.from('registros_producao')
+    buscarPaginado(() => supabase.from('registros_producao')
       .select('func_id, data')
       .gte('data', quinzenasAno[0].inicio).lte('data', quinzenasAno[23].fim)
-      .then(({ data }) => setDias(data || []))
+      .order('id'))
+      .then(setDias)
+      .catch(() => setDias([]))
   }, [quinzenasAno])
 
   // Uma linha por quinzena, com tudo o que o item 9.1 pede

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useExpedicoes, useConfig } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
-import { supabase } from '../lib/supabase'
+import { supabase, buscarPaginado } from '../lib/supabase'
 import { getHoje, fmtNum, fmtData, exportCSV } from '../lib/utils'
 import Modal from '../components/Modal'
 import ConfirmModal from '../components/ConfirmModal'
@@ -21,13 +21,17 @@ export default function Estoque() {
   const [editando, setEditando] = useState(null)
   const [excluindo, setExcluindo] = useState(null)
 
-  // Entradas: displays registrados no empacotamento (Revisão & Empacote)
+  // Entradas: displays registrados no empacotamento (Revisão & Empacote).
+  // É o histórico inteiro, sem recorte de data — por isso vem paginado: parar na
+  // linha mil mostraria um saldo de estoque menor do que o real.
   const [empacotado, setEmpacotado] = useState([])
   useEffect(() => {
-    supabase.from('controle_qualidade')
+    buscarPaginado(() => supabase.from('controle_qualidade')
       .select('tipo, display')
       .not('display', 'is', null)
-      .then(({ data }) => setEmpacotado(data || []))
+      .order('id'))
+      .then(setEmpacotado)
+      .catch(() => toast.error('Erro ao carregar as entradas de estoque'))
   }, [])
 
   const admin = session?.user?.email?.split('@')[0] || 'Admin'

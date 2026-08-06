@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { format, subDays } from 'date-fns'
-import { supabase } from './supabase'
+import { supabase, buscarPaginado } from './supabase'
 import { useConfig } from './hooks'
 import { getHoje, getQuinzenaAtual, fmtNum, fmtData } from './utils'
 
@@ -14,22 +14,32 @@ export function useAlertasProativos(enabled) {
   const fetch = useCallback(async () => {
     if (!enabled) return
     const ini = format(subDays(new Date(), 14), 'yyyy-MM-dd')
-    const [regs, cq, cont, fech, entr, said] = await Promise.all([
-      supabase.from('registros_producao').select('func_id, data, quantidade, funcionarios(nome)').gte('data', ini),
-      supabase.from('controle_qualidade').select('func_id, data'),
-      supabase.from('controle_qualidade').select('func_id, data, contestacao, funcionarios(nome)').eq('contestacao_status', 'aberta'),
-      supabase.from('fechamentos').select('data_fim, status').eq('status', 'fechado'),
-      supabase.from('controle_qualidade').select('display'),
-      supabase.from('expedicoes').select('displays'),
-    ])
-    setDados({
-      regs: regs.data || [],
-      cq: cq.data || [],
-      contestacoes: cont.data || [],
-      fechamentos: fech.data || [],
-      entradaDisplays: (entr.data || []).reduce((s, r) => s + (r.display || 0), 0),
-      saidaDisplays: (said.data || []).reduce((s, r) => s + (r.displays || 0), 0),
-    })
+    // A conferência é cruzada só com os registros da janela, então a busca dela
+    // também é limitada à janela: sem esse filtro a consulta lia a tabela inteira e
+    // parava na linha mil, fazendo o app acusar "sem revisão" dias que foram
+    // revistos — só porque a linha não coube na resposta.
+    // O saldo de estoque não tem janela (é o histórico todo), então vem paginado.
+    try {
+      const [regs, cq, cont, fech, entr, said] = await Promise.all([
+        supabase.from('registros_producao').select('func_id, data, quantidade, funcionarios(nome)').gte('data', ini),
+        supabase.from('controle_qualidade').select('func_id, data').gte('data', ini),
+        supabase.from('controle_qualidade').select('func_id, data, contestacao, funcionarios(nome)').eq('contestacao_status', 'aberta'),
+        supabase.from('fechamentos').select('data_fim, status').eq('status', 'fechado'),
+        buscarPaginado(() => supabase.from('controle_qualidade').select('display').order('id')),
+        buscarPaginado(() => supabase.from('expedicoes').select('displays').order('id')),
+      ])
+      setDados({
+        regs: regs.data || [],
+        cq: cq.data || [],
+        contestacoes: cont.data || [],
+        fechamentos: fech.data || [],
+        entradaDisplays: entr.reduce((s, r) => s + (r.display || 0), 0),
+        saidaDisplays: said.reduce((s, r) => s + (r.displays || 0), 0),
+      })
+    } catch {
+      // Sino do menu: falhar em silêncio é melhor do que um toast a cada 5 minutos.
+      // O que não pode é mostrar alerta com base em dado pela metade.
+    }
   }, [enabled])
 
   // Busca ao abrir, ao voltar o foco e a cada 5 minutos
