@@ -31,7 +31,7 @@ const cfg = {
   premioFidMin: 250, premioQualAnual: 500, premioQualMin: 200,
 }
 
-const D1 = 8, D2 = 24   // corte praticado pela operação
+const D1 = 8, D2 = 23   // corte praticado pela operação
 
 // ── Pagamento da quinzena ────────────────────────────────────────────────────
 describe('calcParceria — quanto o parceiro recebe', () => {
@@ -153,23 +153,23 @@ describe('ratearInteiro — displays e maços não se partem ao meio', () => {
 })
 
 // ── Quinzenas ────────────────────────────────────────────────────────────────
-describe('quinzenas de pagamento (corte 8 e 24)', () => {
+describe('quinzenas de pagamento (corte 8 e 23)', () => {
   beforeAll(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 7, 6, 12, 0, 0))   // 06/08/2026
   })
   afterAll(() => vi.useRealTimers())
 
-  it('em 06/08 a quinzena corrente é 24/07 a 07/08', () => {
+  it('em 06/08 a quinzena corrente é 23/07 a 07/08', () => {
     const q = getQuinzenaAtual(D1, D2)
-    expect(q.inicio).toBe('2026-07-24')
+    expect(q.inicio).toBe('2026-07-23')
     expect(q.fim).toBe('2026-08-07')
   })
 
-  it('a próxima quinzena abre em 08/08 e fecha em 23/08', () => {
+  it('a próxima quinzena abre em 08/08 e fecha em 22/08', () => {
     const q = getQuinzena(1, D1, D2)
     expect(q.inicio).toBe('2026-08-08')
-    expect(q.fim).toBe('2026-08-23')
+    expect(q.fim).toBe('2026-08-22')
   })
 
   it('o ano tem 24 quinzenas, sem buraco e sem sobreposição', () => {
