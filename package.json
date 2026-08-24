@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "backup": "node scripts/backup.mjs",
+    "migrar": "node scripts/migrar.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

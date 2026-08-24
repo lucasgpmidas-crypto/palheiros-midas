@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useAlertasProativos } from '../lib/alertas'
@@ -83,6 +83,24 @@ const PAGE_TITLES = {
   '/configuracoes':   'Configurações',
 }
 
+// Sem sinal, as telas passaram a abrir com o último dado guardado no aparelho
+// em vez de vazias (cache do service worker). Isso é bom para consultar e ruim
+// para confiar: número velho sem aviso parece número de agora.
+function useOnline() {
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine))
+  useEffect(() => {
+    const ligou = () => setOnline(true)
+    const caiu = () => setOnline(false)
+    window.addEventListener('online', ligou)
+    window.addEventListener('offline', caiu)
+    return () => {
+      window.removeEventListener('online', ligou)
+      window.removeEventListener('offline', caiu)
+    }
+  }, [])
+  return online
+}
+
 export default function Layout() {
   const { sair, isAdmin, isFunc, isFinalizacao, funcSession, session } = useAuth()
   const navigate = useNavigate()
@@ -90,6 +108,7 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { total: totalAlertas, criticos } = useAlertasProativos(isAdmin)
   const { cfgStatus } = useConfig()
+  const online = useOnline()
 
   const nav = isAdmin ? ADMIN_NAV : isFinalizacao ? FIN_NAV : FUNC_NAV
   const bottomNav = isAdmin ? BOTTOM_ADMIN : isFinalizacao ? BOTTOM_FIN : BOTTOM_FUNC
@@ -188,6 +207,18 @@ export default function Layout() {
         </header>
 
         <div className="content">
+          {!online && (
+            <div className="alert a-warn">
+              <div style={{ fontSize: 17 }}>📡</div>
+              <div>
+                <strong>Sem internet no aparelho</strong>
+                <span>
+                  Os números desta tela são os últimos que chegaram — podem estar desatualizados.
+                  O que você registrar fica guardado aqui e sobe sozinho quando a conexão voltar.
+                </span>
+              </div>
+            </div>
+          )}
           {/* Os valores de dinheiro vêm da tabela de configurações. Se ela não
               carregar, as telas caem nos números escritos no código e mostrariam
               preço errado com cara de certo — então o aviso fica visível em todas. */}

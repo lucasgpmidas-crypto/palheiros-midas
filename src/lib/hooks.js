@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { supabase, buscarPaginado } from './supabase'
 import { getFuncToken } from './auth'
+import { enfileirar, classificarErro, enviarFila, itensDe, EVENTO as EVENTO_FILA } from './fila'
 import { calcValor, getQuinzenasAno, getQuinzenasDesde, resumoPeriodo, calcQualificacao, calcPremiosAnuais, isProducao, getHoje } from './utils'
 import toast from 'react-hot-toast'
 
@@ -118,6 +119,16 @@ export function useRegistros(filtros = {}) {
             { onConflict: 'func_id,data' }
           )
 
+    // Sem sinal, o número não se perde: fica guardado no aparelho e sobe sozinho
+    // quando a conexão voltar (src/lib/fila.js). Só vale para o funcionário — o
+    // admin lança sentado, e a tela dele deixa escolher data e pessoa, coisas que
+    // a fila não saberia refazer depois.
+    if (error && token && classificarErro(error) === 'rede') {
+      enfileirar({ funcId, quantidade, data, obs })
+      toast.success('✓ Guardado no aparelho. Vai sozinho quando a internet voltar.')
+      return true
+    }
+
     if (error) { toast.error('Erro ao registrar: ' + traduzErro(error)); return false }
     toast.success(data === new Date().toISOString().split('T')[0] ? '✓ Produção registrada!' : '✓ Registro salvo!')
     await fetch()
@@ -141,6 +152,58 @@ export function useRegistros(filtros = {}) {
   }
 
   return { registros: data, loading, refetch: fetch, registrar, atualizar, excluir }
+}
+
+// ── O que ficou guardado no aparelho ──────────────────────────────────────────
+// Acompanha a fila de registros de quem está logado e tenta esvaziá-la sozinha:
+// ao abrir a tela e toda vez que o aparelho anuncia que voltou a ter conexão.
+// O `online` do navegador mente com frequência (rede aberta que não navega), por
+// isso a falha volta para a fila em vez de virar erro na cara do parceiro.
+export function useFilaProducao(funcId, aoEnviar) {
+  const [itens, setItens] = useState([])
+  const [enviando, setEnviando] = useState(false)
+  // Guardado em ref de propósito: a tela costuma passar uma função nova a cada
+  // render, e ela nas dependências do efeito abaixo viraria reenvio em loop.
+  const callback = useRef(aoEnviar)
+  callback.current = aoEnviar
+
+  const recarregar = useCallback(() => {
+    setItens(funcId ? itensDe(funcId) : [])
+  }, [funcId])
+
+  const sincronizar = useCallback(async ({ avisar = false } = {}) => {
+    const token = getFuncToken()
+    if (!funcId || !itensDe(funcId).length) return
+    setEnviando(true)
+    const r = await enviarFila({ funcId, token, enviar: (params) => supabase.rpc('registrar_producao', params) })
+    setEnviando(false)
+    recarregar()
+
+    if (r.enviados) {
+      toast.success(r.enviados === 1 ? '✓ Registro guardado foi enviado!' : `✓ ${r.enviados} registros guardados foram enviados!`)
+      await callback.current?.()
+    }
+    // Recusa do banco é definitiva: o item saiu da fila e a pessoa precisa saber,
+    // senão some sem deixar rastro e ela segue achando que registrou.
+    for (const x of r.recusados) toast.error(`O registro de ${x.data.split('-').reverse().join('/')} não foi aceito: ${x.motivo}`, { duration: 8000 })
+    if (avisar && !r.enviados && !r.recusados.length) {
+      toast.error(r.parouPor === 'sessao' ? 'Entre com seu PIN para enviar o que está guardado.' : 'Ainda sem internet. O registro continua guardado.')
+    }
+  }, [funcId, recarregar])
+
+  useEffect(() => {
+    recarregar()
+    sincronizar()
+    const aoVoltar = () => sincronizar()
+    window.addEventListener(EVENTO_FILA, recarregar)
+    window.addEventListener('online', aoVoltar)
+    return () => {
+      window.removeEventListener(EVENTO_FILA, recarregar)
+      window.removeEventListener('online', aoVoltar)
+    }
+  }, [recarregar, sincronizar])
+
+  return { pendentes: itens, enviando, enviarAgora: () => sincronizar({ avisar: true }) }
 }
 
 // ── Controle de Qualidade ─────────────────────────────────────────────────────
@@ -543,7 +606,7 @@ const CFG_KEYS = {
 
 export function useConfig() {
   const [cfg, setCfg] = useState({
-    valorMil: 75, uniDisplay: 200, uniMaco: 20, tolerancia: 2, quinzenaD1: 8, quinzenaD2: 24, diasSemRevisao: 2, estoqueMinimo: 0,
+    valorMil: 75, uniDisplay: 200, uniMaco: 20, tolerancia: 2, quinzenaD1: 8, quinzenaD2: 23, diasSemRevisao: 2, estoqueMinimo: 0,
     faixaMinInter: 11, faixaMinPrem: 18,
     faixaCpBase: 85, faixaCpInter: 90, faixaCpPrem: 95,
     faixaExtBase: 85, faixaExtInter: 88, faixaExtPrem: 90,

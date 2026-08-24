@@ -3,7 +3,7 @@ import { Bar } from 'react-chartjs-2'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, LineElement, PointElement } from 'chart.js'
 import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { useRegistros, useFuncionarios, useConfig, useCQ, useApuracaoPremios, usePremios } from '../lib/hooks'
+import { useRegistros, useFuncionarios, useConfig, useCQ, useApuracaoPremios, usePremios, useFilaProducao } from '../lib/hooks'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { getHoje, fmtMoeda, fmtValorDia, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, ultimosDias, calcValor, statusConferencia, getQuinzenaAtual, calcParceria, fmtMilheiros, corQualidade, getFaixasProdutividade } from '../lib/utils'
@@ -19,11 +19,20 @@ export default function MinhaProducao() {
   const cfg = useConfig()
   const { valorMil, uniDisplay, uniMaco, tolerancia, quinzenaD1, quinzenaD2 } = cfg
   const hoje = getHoje()
+  const ontem = format(subDays(new Date(), 1), 'yyyy-MM-dd')
   const ini30 = format(subDays(new Date(), 30), 'yyyy-MM-dd')
 
-  const { registros: regsHoje, registrar }        = useRegistros({ data: hoje })
+  const { registros: regsHoje, registrar, refetch: refetchHoje } = useRegistros({ data: hoje })
   const { registros: meusRegs, refetch: refetchMeus } = useRegistros({ funcId, dataInicio: ini30, dataFim: hoje })
   const { cqRegistros: meusCQ, contestar } = useCQ({ funcId, dataInicio: ini30, dataFim: hoje })
+
+  // O que ficou guardado no aparelho por falta de sinal. Quando a fila esvazia,
+  // as duas listas precisam recarregar — senão o número entra no banco e a tela
+  // continua dizendo que ele não registrou nada hoje.
+  const { pendentes, enviando: enviandoFila, enviarAgora } = useFilaProducao(
+    funcId,
+    async () => { await Promise.all([refetchHoje(), refetchMeus()]) },
+  )
 
   const [qtd, setQtd] = useState('')
   const [obs, setObs] = useState('')
@@ -253,6 +262,31 @@ export default function MinhaProducao() {
           {meuHoje && (
             <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 8 }}>
               ℹ️ Você já registrou {fmtNum(meuHoje.quantidade)} un. hoje. Registrar novamente substitui o valor anterior.
+            </div>
+          )}
+
+          {/* Guardado no aparelho ≠ enviado. Quem registrou sem sinal precisa ver
+              que o número está seguro, mas ainda não chegou — e poder forçar o
+              envio quando reconhecer que a internet voltou. */}
+          {pendentes.length > 0 && (
+            <div style={{ marginTop: 10, background: 'var(--bg3)', border: '1px solid var(--amber)', borderRadius: 'var(--rs)', padding: '10px 14px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--amber)', marginBottom: 4 }}>
+                📥 {pendentes.length === 1 ? 'Registro guardado no aparelho' : `${pendentes.length} registros guardados no aparelho`}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>
+                {pendentes.length === 1
+                  ? 'Ainda não chegou ao sistema — vai sozinho assim que a internet voltar.'
+                  : 'Ainda não chegaram ao sistema — vão sozinhos assim que a internet voltar.'}
+              </div>
+              {pendentes.map(p => (
+                <div key={p.chave} style={{ fontSize: 12.5, color: 'var(--text2)' }}>
+                  • <strong>{fmtNum(p.quantidade)} un.</strong> de {p.data === hoje ? 'hoje' : p.data === ontem ? 'ontem' : fmtData(p.data)}
+                  <span style={{ color: 'var(--text3)' }}> · guardado às {new Date(p.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              ))}
+              <button className="btn btn-secondary btn-sm" onClick={enviarAgora} disabled={enviandoFila} style={{ marginTop: 8 }}>
+                {enviandoFila ? 'Enviando...' : '↑ Enviar agora'}
+              </button>
             </div>
           )}
         </div>

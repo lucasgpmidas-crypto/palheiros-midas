@@ -33,6 +33,24 @@ export default defineConfig({
               expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
             },
           },
+          {
+            // Leituras do banco. Sem isso, o app abre offline mas com todas as
+            // telas vazias — o parceiro no galpão sem sinal não vê nem o que já
+            // produziu na quinzena. A rede continua vindo primeiro: o cache só
+            // entra quando ela falha ou demora demais, então o número mostrado
+            // é o mais novo que existir, e o app avisa no topo quando está sem
+            // conexão — dado velho sem aviso é pior do que tela vazia.
+            // Só GET passa por aqui; gravação é POST e nunca é cacheada.
+            urlPattern: ({ url, request }) =>
+              request.method === 'GET' && /\.supabase\.co$/.test(url.hostname) && url.pathname.startsWith('/rest/v1/'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'dados-supabase',
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 3 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
         ],
       },
     }),
