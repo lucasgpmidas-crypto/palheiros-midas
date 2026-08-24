@@ -8,7 +8,10 @@ import ConfirmModal from '../components/ConfirmModal'
 import toast from 'react-hot-toast'
 
 const TIPOS = ['Original', 'Menta', 'Ouro', 'Outro']
-const FORM0 = { funcId: '', data: getHoje(), os: '', tipo: 'Original', entregue: '', revisada: '', obs: '' }
+// Sem campo de OS: a operação não usa ordem de serviço (foi por isso que o item 6
+// do plano foi pulado). A coluna continua no banco, guardando o que já foi
+// lançado; o que saiu é o campo vazio que ninguém sabia preencher.
+const FORM0 = { funcId: '', data: getHoje(), tipo: 'Original', entregue: '', revisada: '', obs: '' }
 const EMB0 = { display: '', macos: '' }
 
 export default function ControleCQ() {
@@ -35,7 +38,11 @@ export default function ControleCQ() {
   // ── Lote de vários dias ────────────────────────────────────────────────────
   // O lote chega com a etiqueta de cada dia, mas a revisão é feita e contada de uma
   // vez só. Aqui ela lança os dias juntos e o sistema grava um registro por data.
-  const [modo, setModo] = useState('dia')
+  // Abre no lote, não no dia avulso: a revisadora pega vários lotes do mesmo
+  // enrolador e conta tudo junto — é esse o trabalho dela. O dia avulso é a
+  // exceção (correção de um lançamento), e era justamente o único modo sem uma
+  // linha explicando o que fazer.
+  const [modo, setModo] = useState('lote')
   const [lote, setLote] = useState({ funcId: '', tipo: 'Original', revisado: '', obs: '', revisadoEm: getHoje() })
   const [itens, setItens] = useState({})            // data -> { incluir, entregue }
   const [salvandoLote, setSalvandoLote] = useState(false)
@@ -168,7 +175,7 @@ export default function ControleCQ() {
     if (rev > ent) { toast.error('Revisada não pode ser maior que entregue'); return }
     if (form.data > hoje) { toast.error('Data não pode ser futura'); return }
     setSaving(true)
-    const ok = await registrar({ func_id: Number(form.funcId), data: form.data, os: form.os || null, tipo: form.tipo, entregue: ent, revisada: rev, display: null, macos: null, obs: form.obs || null, registrado_por_revisao: isAdmin ? 'Admin' : funcSession?.nome || null, revisado_em: hoje })
+    const ok = await registrar({ func_id: Number(form.funcId), data: form.data, os: null, tipo: form.tipo, entregue: ent, revisada: rev, display: null, macos: null, obs: form.obs || null, registrado_por_revisao: isAdmin ? 'Admin' : funcSession?.nome || null, revisado_em: hoje })
     if (ok) setForm(FORM0)
     setSaving(false)
   }
@@ -179,7 +186,7 @@ export default function ControleCQ() {
     const e2 = parseInt(editando.entregue) || 0
     const r2 = parseInt(editando.revisada) || 0
     if (r2 > e2) { toast.error('Revisada não pode ser maior que entregue'); return }
-    const ok = await atualizar(editando.id, { data: editando.data, os: editando.os || null, tipo: editando.tipo, entregue: e2, revisada: r2, display: editando.display === '' ? null : parseInt(editando.display), macos: editando.macos === '' ? null : parseInt(editando.macos), obs: editando.obs || null })
+    const ok = await atualizar(editando.id, { data: editando.data, tipo: editando.tipo, entregue: e2, revisada: r2, display: editando.display === '' ? null : parseInt(editando.display), macos: editando.macos === '' ? null : parseInt(editando.macos), obs: editando.obs || null })
     if (ok) setEditando(null)
   }
 
@@ -201,7 +208,7 @@ export default function ControleCQ() {
   const totPerd = cqRegistros.reduce((s, r) => s + (r.perda || 0), 0)
   const taxaGeral = totEnt > 0 ? Math.round(totRev / totEnt * 100) : 0
 
-  const handleExportar = () => exportCSV([['Data','Funcionário','OS','Tipo','Entregue','Revisado','Display','Maços','Perda','% Aprov.','% Perda','Revisão por','Embalagem por','Contestação','Obs.'],...cqRegistros.map(r=>[fmtData(r.data),r.funcionarios?.nome,r.os||'',r.tipo,r.entregue,r.revisada,r.display ?? '',r.macos ?? '',r.perda,r.taxa+'%',r.entregue>0?Math.round(r.perda/r.entregue*100)+'%':'0%',r.registrado_por_revisao||'',r.registrado_por_display||'(pendente)',r.contestacao?(r.contestacao_status==='resolvida'?'[resolvida] ':'[aberta] ')+r.contestacao:'',r.obs||''])], `cq_${hoje}.csv`)
+  const handleExportar = () => exportCSV([['Data','Parceiro','Tipo','Veio','Prestou','Display','Maços','Descarte','% Aprov.','% Descarte','Revisão por','Embalagem por','Contestação','Obs.'],...cqRegistros.map(r=>[fmtData(r.data),r.funcionarios?.nome,r.tipo,r.entregue,r.revisada,r.display ?? '',r.macos ?? '',r.perda,r.taxa+'%',r.entregue>0?Math.round(r.perda/r.entregue*100)+'%':'0%',r.registrado_por_revisao||'',r.registrado_por_display||'(pendente)',r.contestacao?(r.contestacao_status==='resolvida'?'[resolvida] ':'[aberta] ')+r.contestacao:'',r.obs||''])], `cq_${hoje}.csv`)
 
   const badgeTipo = (t) => ({ Original: 'b-blue', Menta: 'b-green', Ouro: 'b-gold', Outro: 'b-amber' }[t] || 'b-amber')
 
@@ -221,10 +228,13 @@ export default function ControleCQ() {
     <div>
       {/* Formulário */}
       <div className="card mb16">
+        {/* O título acompanha o modo: dizer "Registrar Revisão" enquanto a pessoa
+            está embalando é o tipo de detalhe que faz quem chegou agora achar que
+            entrou na tela errada. */}
         <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-          <span>📦 Registrar Revisão (contagem, maços e descarte)</span>
+          <span>{modo === 'embalagem' ? '🏷 Embalar o que já foi revisado' : modo === 'lote' ? '📦 Revisar vários dias de uma vez' : '📦 Revisar um dia só'}</span>
           <div style={{ display: 'flex', gap: 6 }}>
-            {[['dia', '1 dia'], ['lote', 'Vários dias'], ['embalagem', '🏷 Embalagem']].map(([m, label]) => (
+            {[['lote', 'Vários dias'], ['dia', '1 dia'], ['embalagem', '🏷 Embalagem']].map(([m, label]) => (
               <button key={m} onClick={() => setModo(m)}
                 style={{ padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12.5, fontWeight: 700,
                   border: modo === m ? '2px solid var(--gold)' : '1px solid var(--border)',
@@ -274,19 +284,24 @@ export default function ControleCQ() {
                     {sugestaoEmb.avulso > 0 && <> e sobram <strong>{sugestaoEmb.avulso} un. avulsas</strong></>} — confira com o que saiu de verdade.
                   </div>
                 )}
-                <div className="table-wrap"><table>
-                  <thead><tr><th style={{ width: 40 }}>✓</th><th>Dia</th><th>Monte</th><th>Aprovado na revisão</th><th>Displays</th><th>Maços</th></tr></thead>
+                <div className="table-wrap"><table className="compacta">
+                  <thead><tr><th style={{ width: 40 }}>✓</th><th>Dia</th><th>Prestou</th><th>Displays</th><th>Maços</th></tr></thead>
                   <tbody>
                     {pendentesEmb.map(c => {
                       const idx = embSelecionados.findIndex(x => x.id === c.id)
                       return (
                         <tr key={c.id} style={{ opacity: marcadosEmb[c.id] ? 1 : .45 }}>
                           <td><input type="checkbox" checked={!!marcadosEmb[c.id]} onChange={e => setMarcadosEmb(m => ({ ...m, [c.id]: e.target.checked }))} style={{ width: 'auto', margin: 0 }} /></td>
-                          <td><strong style={{ color: 'var(--text)' }}>{fmtData(c.data)}</strong></td>
-                          <td style={{ color: 'var(--text3)', fontSize: 12 }}>
-                            {c.lote_id
-                              ? <>🧾 lote de {tamanhoLote[c.lote_id]} dias{c.revisado_em ? ` · ${fmtData(c.revisado_em, 'dd/MM')}` : ''}</>
-                              : 'avulso'}
+                          {/* De onde veio o dia fica embaixo da data, não numa coluna
+                              própria: a informação importa (é o contexto de quem
+                              contestar), mas não vale uma coluna num celular. */}
+                          <td>
+                            <strong style={{ color: 'var(--text)' }}>{fmtData(c.data)}</strong>
+                            <div style={{ color: 'var(--text3)', fontSize: 11 }}>
+                              {c.lote_id
+                                ? <>🧾 lote de {tamanhoLote[c.lote_id]} dias{c.revisado_em ? ` · ${fmtData(c.revisado_em, 'dd/MM')}` : ''}</>
+                                : 'avulso'}
+                            </div>
                           </td>
                           <td style={{ color: 'var(--green)' }}>{fmtNum(c.revisada)} un.</td>
                           <td style={{ color: 'var(--gold-light)', fontWeight: 700 }}>{idx >= 0 ? dispRateio[idx] : '—'}</td>
@@ -346,8 +361,12 @@ export default function ControleCQ() {
               <div className="alert a-success"><div>✓</div><div><strong>Nenhum dia pendente</strong><span>Toda a produção declarada deste parceiro nos últimos 30 dias já passou pela revisão.</span></div></div>
             ) : (
               <>
-                <div className="table-wrap"><table>
-                  <thead><tr><th style={{ width: 40 }}>✓</th><th>Dia de produção</th><th>Declarado</th><th>Entregue (contagem)</th><th>Aprovado (rateado)</th><th>Descarte</th></tr></thead>
+                <div className="table-wrap"><table className="compacta">
+                  {/* Quatro colunas, não seis: com o rateado e o descarte em colunas
+                      próprias a tabela não cabia num celular, e o que ficava fora da
+                      borda dependia de uma rolagem lateral que ninguém descobre. Os
+                      dois viraram uma linha embaixo do campo, onde ela já olha. */}
+                  <thead><tr><th style={{ width: 40 }}>✓</th><th>Dia</th><th>Declarado</th><th>Quanto veio</th></tr></thead>
                   <tbody>
                     {diasPendentes.map(r => {
                       const it = itens[r.data] || {}
@@ -360,15 +379,24 @@ export default function ControleCQ() {
                           <td style={{ color: 'var(--gold-light)' }}>{fmtNum(r.quantidade)} un.</td>
                           <td>
                             <input type="number" min="0" value={it.entregue ?? ''} disabled={!it.incluir}
-                              onChange={e => setItem(r.data, 'entregue', e.target.value)} style={{ width: 130 }} />
+                              onChange={e => setItem(r.data, 'entregue', e.target.value)} style={{ width: 110 }} />
                             {it.incluir && ent > 0 && ent !== r.quantidade && (
                               <div style={{ fontSize: 10.5, color: 'var(--amber)' }}>
                                 {ent > r.quantidade ? '+' : '−'}{fmtNum(Math.abs(ent - r.quantidade))} vs declarado
                               </div>
                             )}
+                            {/* Só depois que ela informa o total aprovado: antes disso
+                                o rateio assume tudo aprovado e mostraria "descarte 0"
+                                em todos os dias, que não é resultado, é ruído. */}
+                            {it.incluir && calc && lote.revisado !== '' && (
+                              <div style={{ fontSize: 11, marginTop: 3 }}>
+                                <span style={{ color: 'var(--green)' }}>prestou {fmtNum(calc.revisada)}</span>
+                                {calc.entregue - calc.revisada > 0 && (
+                                  <span style={{ color: 'var(--red)' }}> · −{fmtNum(calc.entregue - calc.revisada)}</span>
+                                )}
+                              </div>
+                            )}
                           </td>
-                          <td style={{ color: 'var(--green)' }}>{calc ? fmtNum(calc.revisada) + ' un.' : '—'}</td>
-                          <td style={{ color: 'var(--red)' }}>{calc ? fmtNum(calc.entregue - calc.revisada) + ' un.' : '—'}</td>
                         </tr>
                       )
                     })}
@@ -398,11 +426,10 @@ export default function ControleCQ() {
             em vez de sair pela borda — a revisão é lançada no chão de fábrica */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 10, alignItems: 'flex-end', marginBottom: 10 }}>
           {[
-            { label: 'Funcionário', el: <select value={form.funcId} onChange={e => setF('funcId', e.target.value)}><option value="">Selecionar...</option>{ativos.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}</select> },
-            { label: 'Data', el: <input type="date" value={form.data} max={hoje} onChange={e => setF('data', e.target.value)} /> },
-            { label: 'OS', el: <input type="text" value={form.os} placeholder="Nº" onChange={e => setF('os', e.target.value)} /> },
-            { label: 'Qtd. Entregue', el: <input type="number" min="0" value={form.entregue} placeholder="Ex: 10000" onChange={e => setF('entregue', e.target.value)} /> },
-            { label: 'Qtd. Revisada', el: <input type="number" min="0" value={form.revisada} placeholder="Ex: 9500" onChange={e => setF('revisada', e.target.value)} /> },
+            { label: 'Parceiro', el: <select value={form.funcId} onChange={e => setF('funcId', e.target.value)}><option value="">Selecionar...</option>{ativos.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}</select> },
+            { label: 'Dia de produção', el: <input type="date" value={form.data} max={hoje} onChange={e => setF('data', e.target.value)} /> },
+            { label: 'Quanto veio (contagem)', el: <input type="number" min="0" value={form.entregue} placeholder="Ex: 10000" onChange={e => setF('entregue', e.target.value)} /> },
+            { label: 'Quanto prestou (aprovado)', el: <input type="number" min="0" value={form.revisada} placeholder="Ex: 9500" onChange={e => setF('revisada', e.target.value)} /> },
             { label: 'Tipo', el: <select value={form.tipo} onChange={e => setF('tipo', e.target.value)}>{TIPOS.map(t => <option key={t} value={t}>{t}</option>)}</select> },
           ].map(({ label, el }) => (
             <div className="fg" key={label} style={{ margin: 0 }}><label>{label}</label>{el}</div>
@@ -446,10 +473,13 @@ export default function ControleCQ() {
         )}
       </div>
 
-      {/* Filtros */}
+      {/* Filtros. O título não é enfeite: sem ele, no celular este bloco fica
+          colado no formulário e parece a continuação dele — dava para preencher
+          o filtro achando que estava lançando e concluir que o sistema não grava. */}
       <div className="card mb16">
+        <div className="card-title">🔎 Consultar o que já foi lançado</div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0, minWidth: 160 }}><label>Funcionário</label>
+          <div className="fg" style={{ margin: 0, minWidth: 160 }}><label>Parceiro</label>
             <select value={filtros.funcId} onChange={e => setFiltros(f => ({ ...f, funcId: e.target.value }))}>
               <option value="">Todos</option>{funcionarios.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
             </select>
@@ -467,7 +497,7 @@ export default function ControleCQ() {
 
         {/* Totais */}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
-          {[['Total Entregue', fmtNum(totEnt) + ' un.', 'var(--text)'], ['Total Revisado', fmtNum(totRev) + ' un.', 'var(--green)'], ['Total Perda', fmtNum(totPerd) + ' un.', 'var(--red)'], ['Taxa Geral', taxaGeral + '%', taxaCor(taxaGeral)], ['Registros', cqRegistros.length, 'var(--text)'], ...(contestacoesAbertas > 0 ? [['⚑ Contestações abertas', contestacoesAbertas, 'var(--amber)']] : [])].map(([l, v, c]) => (
+          {[['Veio', fmtNum(totEnt) + ' un.', 'var(--text)'], ['Prestou', fmtNum(totRev) + ' un.', 'var(--green)'], ['Descarte', fmtNum(totPerd) + ' un.', 'var(--red)'], ['Aproveitamento', taxaGeral + '%', taxaCor(taxaGeral)], ['Lançamentos', cqRegistros.length, 'var(--text)'], ...(contestacoesAbertas > 0 ? [['⚑ Contestações abertas', contestacoesAbertas, 'var(--amber)']] : [])].map(([l, v, c]) => (
             <div key={l} className="stats-chip"><span style={{ color: 'var(--text3)' }}>{l}: </span><strong style={{ color: c }}>{v}</strong></div>
           ))}
         </div>
@@ -480,7 +510,7 @@ export default function ControleCQ() {
           : cqRegistros.length === 0
             ? <div className="empty-state"><div className="es-icon">📦</div><div className="es-text">Nenhum registro de revisão no período</div></div>
             : <div className="table-wrap"><table>
-                <thead><tr><th>Data</th><th>Funcionário</th><th>OS</th><th>Tipo</th><th>Entregue</th><th>Revisado</th><th>Perda</th><th>% Aprov.</th><th>% Perda</th><th>Revisão por</th><th>Embalagem</th><th>Contestação</th><th>Obs.</th><th>Ações</th></tr></thead>
+                <thead><tr><th>Data</th><th>Parceiro</th><th>Tipo</th><th>Veio</th><th>Prestou</th><th>Descarte</th><th>% Aprov.</th><th>% Descarte</th><th>Revisão por</th><th>Embalagem</th><th>Contestação</th><th>Obs.</th><th>Ações</th></tr></thead>
                 <tbody>{cqRegistros.map(r => {
                   const ptaxa = r.entregue > 0 ? Math.round(r.perda / r.entregue * 100) : 0
                   const pendente = !r.registrado_por_display
@@ -488,7 +518,6 @@ export default function ControleCQ() {
                     <tr key={r.id}>
                       <td>{fmtData(r.data)}</td>
                       <td><strong style={{ color: 'var(--text)' }}>{r.funcionarios?.nome}</strong></td>
-                      <td style={{ color: 'var(--text3)' }}>{r.os || '—'}</td>
                       <td><span className={`badge ${badgeTipo(r.tipo)}`}>{r.tipo}</span></td>
                       <td>{fmtNum(r.entregue)} un.</td>
                       <td style={{ color: 'var(--green)' }}>{fmtNum(r.revisada)} un.</td>
@@ -539,7 +568,7 @@ export default function ControleCQ() {
         {porTipo.length === 0
           ? <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Sem dados por tipo</div></div>
           : <div className="table-wrap"><table>
-              <thead><tr><th>Tipo</th><th>Entregue</th><th>Revisado</th><th>Perda</th><th>Aproveit.</th><th>Regs</th></tr></thead>
+              <thead><tr><th>Tipo</th><th>Veio</th><th>Prestou</th><th>Descarte</th><th>Aproveit.</th><th>Regs</th></tr></thead>
               <tbody>{porTipo.map(x => (
                 <tr key={x.t}>
                   <td><span className={`badge ${badgeTipo(x.t)}`}>{x.t}</span></td>
@@ -558,15 +587,14 @@ export default function ControleCQ() {
       {editando && (
         <Modal title="Editar Registro CQ" onClose={() => setEditando(null)} width={600}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div className="fg"><label>Funcionário</label><input value={editando.funcionarios?.nome || ''} readOnly /></div>
-            <div className="fg"><label>Data</label><input type="date" value={editando.data} max={hoje} onChange={e => setEditando(v => ({ ...v, data: e.target.value }))} /></div>
-            <div className="fg"><label>OS</label><input value={editando.os || ''} onChange={e => setEditando(v => ({ ...v, os: e.target.value }))} /></div>
+            <div className="fg"><label>Parceiro</label><input value={editando.funcionarios?.nome || ''} readOnly /></div>
+            <div className="fg"><label>Dia de produção</label><input type="date" value={editando.data} max={hoje} onChange={e => setEditando(v => ({ ...v, data: e.target.value }))} /></div>
             <div className="fg"><label>Tipo</label><select value={editando.tipo} onChange={e => setEditando(v => ({ ...v, tipo: e.target.value }))}>{TIPOS.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-            <div className="fg"><label>Qtd. Entregue</label><input type="number" min="0" value={editando.entregue} onChange={e => setEditando(v => ({ ...v, entregue: e.target.value }))} /></div>
-            <div className="fg"><label>Qtd. Revisada</label><input type="number" min="0" value={editando.revisada} onChange={e => setEditando(v => ({ ...v, revisada: e.target.value }))} /></div>
+            <div className="fg"><label>Quanto veio</label><input type="number" min="0" value={editando.entregue} onChange={e => setEditando(v => ({ ...v, entregue: e.target.value }))} /></div>
+            <div className="fg"><label>Quanto prestou</label><input type="number" min="0" value={editando.revisada} onChange={e => setEditando(v => ({ ...v, revisada: e.target.value }))} /></div>
             <div className="fg"><label>Display</label><input type="number" min="0" value={editando.display || 0} onChange={e => setEditando(v => ({ ...v, display: e.target.value }))} /></div>
             <div className="fg"><label>Maços</label><input type="number" min="0" value={editando.macos || 0} onChange={e => setEditando(v => ({ ...v, macos: e.target.value }))} /></div>
-            <div className="fg"><label>Perda (auto)</label><input value={editando.entregue > 0 ? fmtNum(editando.entregue - editando.revisada) + ' un.' : '—'} readOnly /></div>
+            <div className="fg"><label>Descarte (auto)</label><input value={editando.entregue > 0 ? fmtNum(editando.entregue - editando.revisada) + ' un.' : '—'} readOnly /></div>
             <div className="fg"><label>% Aproveit. (auto)</label><input value={editando.entregue > 0 ? Math.round(editando.revisada / editando.entregue * 100) + '%' : '—'} readOnly /></div>
           </div>
           <div className="fg"><label>Observação</label><input value={editando.obs || ''} onChange={e => setEditando(v => ({ ...v, obs: e.target.value }))} /></div>

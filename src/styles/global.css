@@ -69,10 +69,21 @@ input,select,textarea{font-family:'Barlow',sans-serif}
 /* Table */
 .table-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;min-width:480px}
+/* Tabela de lançamento, que precisa caber inteira num celular: aqui a rolagem
+   lateral esconderia justamente o que a pessoa precisa conferir antes de gravar. */
+table.compacta{min-width:0}
+table.compacta th,table.compacta td{padding:9px 7px}
 th{font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;font-weight:700}
 td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:13.5px;color:var(--text2)}
 tr:last-child td{border-bottom:none}
 tbody tr:hover td{background:var(--bg3)}
+/* Campo digitável dentro de tabela (a contagem de cada dia no lançamento em lote).
+   O estilo dos campos só valia dentro de .fg, e estes, por viverem numa célula,
+   ficavam com o visual cru do navegador: caixa branca de texto preto no meio da
+   tela escura — justo no campo mais usado da tela de revisão. */
+table input[type=number],table input[type=text],table select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;color:var(--text);font-size:13.5px;outline:none;transition:border-color .2s}
+table input:focus,table select:focus{border-color:var(--gold)}
+table input:disabled{opacity:.45;cursor:not-allowed}
 
 /* Badge */
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
