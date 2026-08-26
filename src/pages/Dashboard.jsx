@@ -16,7 +16,7 @@ export default function Dashboard() {
 
   const { valorMil, uniDisplay, uniMaco, tolerancia } = useConfig()
   const { funcionarios } = useFuncionarios()
-  const { registros: regsHoje }   = useRegistros({ data: hoje })
+  const { registros: regsHoje, loading: carregandoHoje } = useRegistros({ data: hoje })
   const { cqRegistros: cqHoje }   = useCQ({ dataInicio: hoje, dataFim: hoje })
   const { registros: regsSemana } = useRegistros({ dataInicio: semIni, dataFim: semFim })
   const { registros: regsMes }    = useRegistros({ dataInicio: mesAtual + '-01', dataFim: hoje })
@@ -109,7 +109,9 @@ export default function Dashboard() {
       <div className="g2">
         <div className="card">
           <div className="card-title">🏆 Ranking do Dia</div>
-          {stats.ranking.length === 0
+          {carregandoHoje
+            ? <div className="loading"><div className="spin" /></div>
+            : stats.ranking.length === 0
             ? <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Nenhum registro hoje</div></div>
             : stats.ranking.slice(0, 8).map((r, i) => {
                 const pct = r.funcionarios?.meta_diaria ? pctMeta(r.quantidade, r.funcionarios.meta_diaria) : 0

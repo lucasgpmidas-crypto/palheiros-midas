@@ -21,8 +21,8 @@ export default function MinhaProducao() {
   const ontem = format(subDays(new Date(), 1), 'yyyy-MM-dd')
   const ini30 = format(subDays(new Date(), 30), 'yyyy-MM-dd')
 
-  const { registros: regsHoje, registrar, refetch: refetchHoje } = useRegistros({ data: hoje })
-  const { registros: meusRegs, refetch: refetchMeus } = useRegistros({ funcId, dataInicio: ini30, dataFim: hoje })
+  const { registros: regsHoje, loading: carregandoHoje, registrar, refetch: refetchHoje } = useRegistros({ data: hoje })
+  const { registros: meusRegs, loading: carregandoMeus, refetch: refetchMeus } = useRegistros({ funcId, dataInicio: ini30, dataFim: hoje })
   const { cqRegistros: meusCQ, contestar } = useCQ({ funcId, dataInicio: ini30, dataFim: hoje })
 
   // O que ficou guardado no aparelho por falta de sinal. Quando a fila esvazia,
@@ -501,7 +501,9 @@ export default function MinhaProducao() {
         {/* Ranking do dia */}
         <div className="card">
           <div className="card-title">🏆 Ranking de Hoje</div>
-          {rankHoje.length === 0
+          {carregandoHoje
+            ? <div className="loading"><div className="spin" /></div>
+            : rankHoje.length === 0
             ? <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Nenhum registro hoje</div></div>
             : rankHoje.map((r, i) => {
                 const isMe = r.func_id === funcId
@@ -531,7 +533,9 @@ export default function MinhaProducao() {
             📈 Minha Evolução — 14 Dias
             {f?.meta_diaria ? <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text3)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>linha = meta {fmtNum(f.meta_diaria)} un.</span> : null}
           </div>
-          {meusRegs.length === 0
+          {carregandoMeus
+            ? <div className="loading"><div className="spin" /></div>
+            : meusRegs.length === 0
             ? <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Sem registros no período</div></div>
             : (
               <>

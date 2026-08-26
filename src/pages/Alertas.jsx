@@ -18,7 +18,7 @@ export default function Alertas() {
 
   const hoje = getHoje()
   const ini7 = format(subDays(new Date(), 7), 'yyyy-MM-dd')
-  const { funcionarios } = useFuncionarios()
+  const { funcionarios, loading: carregandoFuncs } = useFuncionarios()
   const { valorMil, uniDisplay, uniMaco, tolerancia } = useConfig()
   const { registros: regsHoje } = useRegistros({ data: hoje })
   const { registros: regs7 }   = useRegistros({ dataInicio: ini7, dataFim: hoje })
@@ -155,7 +155,9 @@ export default function Alertas() {
               <div><strong>{f.nome} — meta atingida ({f.pct}%)</strong><span>Produziu {fmtNum(f.qty)} un. · {fmtMoeda(f.valor)}</span></div>
             </div>
           ))}
-          {analise.statusHoje.length === 0 && <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Sem dados hoje</div></div>}
+          {carregandoFuncs
+            ? <div className="loading"><div className="spin" /></div>
+            : analise.statusHoje.length === 0 && <div className="empty-state"><div className="es-icon">📭</div><div className="es-text">Sem dados hoje</div></div>}
         </div>
 
         <div className="card">
