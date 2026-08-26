@@ -1,13 +1,11 @@
 import { useState } from 'react'
-import { Line } from 'react-chartjs-2'
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend } from 'chart.js'
+import Grafico from '../components/Grafico'
 import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
 import { fmtValorDia, getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, exportCSV, isProducao } from '../lib/utils'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
 export default function HistIndividual() {
   const { isAdmin, funcSession } = useAuth()
@@ -135,7 +133,7 @@ export default function HistIndividual() {
             <div className="card">
               <div className="card-title">📈 Evolução da Produção</div>
               <div className="chart-wrap">
-                <Line
+                <Grafico tipo="line"
                   data={{ labels: chartLabels, datasets: [
                     { label: 'Produção', data: chartData, borderColor: '#C9A227', backgroundColor: 'rgba(201,162,39,.1)', borderWidth: 2, pointRadius: 2, tension: .3, spanGaps: true },
                     { label: 'Meta', data: metaLine, borderColor: 'rgba(40,180,133,.5)', borderWidth: 1.5, borderDash: [5, 4], pointRadius: 0, tension: 0, spanGaps: true },

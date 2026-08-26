@@ -1,12 +1,10 @@
 import { useState, useMemo } from 'react'
-import { Line } from 'react-chartjs-2'
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend } from 'chart.js'
+import Grafico from '../components/Grafico'
 import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
 import { getHoje, fmtMoeda, fmtNum, pctMeta, avatarCor, getIniciais, exportCSV, isProducao, getQuinzenaAtual, calcParceria, fmtMilheiros, corQualidade } from '../lib/utils'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
 const COLORS = ['#C9A227', '#3B82F6', '#28B485', '#8B5CF6', '#F59E0B', '#06B6D4', '#EC4899', '#EF4444']
 
@@ -121,7 +119,7 @@ export default function HistEquipe() {
           <div className="card-title">📈 Evolução por Funcionário</div>
           <div className="chart-wrap">
             {loading ? <div className="loading"><div className="spin" /></div>
-              : <Line
+              : <Grafico tipo="line"
                   data={{ labels: stats.chartLabels, datasets: stats.datasets }}
                   options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#9CA5C2', font: { size: 11 }, boxWidth: 12 } }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmtNum(c.raw) + ' un.' } } }, scales: { x: { ticks: { color: '#5E6A8A', font: { size: 10 }, maxTicksLimit: 10 }, grid: { color: 'rgba(255,255,255,.04)' } }, y: { ticks: { color: '#5E6A8A', font: { size: 11 }, callback: v => fmtNum(v) }, grid: { color: 'rgba(255,255,255,.04)' } } } }}
                 />

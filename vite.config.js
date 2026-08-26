@@ -3,6 +3,20 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        // React e Supabase quase nunca mudam; o codigo do sistema muda a cada
+        // publicacao. Juntos num arquivo so, qualquer ajuste obrigava o celular
+        // do galpao a rebaixar os ~300 kB de biblioteca de novo. Separados, o
+        // navegador reaproveita o que ja tem e so busca o que mudou.
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({

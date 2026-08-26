@@ -1,6 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { Bar } from 'react-chartjs-2'
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, LineElement, PointElement } from 'chart.js'
+import Grafico from '../components/Grafico'
 import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useRegistros, useFuncionarios, useConfig, useCQ, useApuracaoPremios, usePremios, useFilaProducao } from '../lib/hooks'
@@ -10,7 +9,6 @@ import { getHoje, fmtMoeda, fmtValorDia, fmtNum, fmtData, pctMeta, corPct, avata
 import Modal from '../components/Modal'
 import toast from 'react-hot-toast'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, LineElement, PointElement)
 
 export default function MinhaProducao() {
   const { funcSession, isFinalizacao } = useAuth()
@@ -543,7 +541,7 @@ export default function MinhaProducao() {
             : (
               <>
                 <div className="chart-wrap" style={{ height: 180, marginBottom: 16 }}>
-                  <Bar
+                  <Grafico tipo="bar"
                     data={chartData}
                     options={{
                       responsive: true, maintainAspectRatio: false,

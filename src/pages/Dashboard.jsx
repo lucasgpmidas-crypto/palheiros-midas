@@ -1,13 +1,11 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Bar } from 'react-chartjs-2'
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js'
+import Grafico from '../components/Grafico'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
 import { getHoje, fmtMoeda, fmtNum, getIniciais, avatarCor, pctMeta, corPct, getSemana, ultimosDias, getMes, isProducao, statusConferencia } from '../lib/utils'
 import { format, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip)
 
 export default function Dashboard() {
   const hoje = getHoje()
@@ -135,7 +133,7 @@ export default function Dashboard() {
         <div className="card">
           <div className="card-title">📈 Últimos 7 Dias</div>
           <div className="chart-wrap">
-            <Bar data={{ labels: stats.chartLabels, datasets: [{ data: stats.chartData, backgroundColor: 'rgba(201,162,39,.2)', borderColor: '#C9A227', borderWidth: 1.5, borderRadius: 4 }] }}
+            <Grafico tipo="bar" data={{ labels: stats.chartLabels, datasets: [{ data: stats.chartData, backgroundColor: 'rgba(201,162,39,.2)', borderColor: '#C9A227', borderWidth: 1.5, borderRadius: 4 }] }}
               options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#5E6A8A', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,.04)' } }, y: { ticks: { color: '#5E6A8A', font: { size: 11 }, callback: v => fmtNum(v) }, grid: { color: 'rgba(255,255,255,.04)' } } } }} />
           </div>
         </div>
