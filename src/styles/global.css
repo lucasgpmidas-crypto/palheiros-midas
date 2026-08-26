@@ -14,6 +14,16 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-
 ::-webkit-scrollbar-track{background:var(--bg2)}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
 button{font-family:'Barlow',sans-serif;cursor:pointer}
+
+/* Foco de teclado. :focus-visible so marca quem chegou no elemento pelo Tab —
+   para mouse e toque nada muda. Antes os botoes nao tinham marca nenhuma de
+   foco, entao quem preenche o registro pelo teclado nao sabia onde estava, e os
+   campos trocavam a marca por 1px de borda, que some no meio da tela escura. */
+:focus-visible{outline:2px solid var(--gold-light);outline-offset:2px}
+.fg input:focus-visible,.fg select:focus-visible,.fg textarea:focus-visible,
+table input:focus-visible,table select:focus-visible{outline-offset:1px}
+/* O contorno nao pode ficar escondido atras do proximo elemento da lista. */
+.nav-item:focus-visible,.bn-item:focus-visible{outline-offset:-2px;position:relative;z-index:1}
 input,select,textarea{font-family:'Barlow',sans-serif}
 
 /* Layout */
