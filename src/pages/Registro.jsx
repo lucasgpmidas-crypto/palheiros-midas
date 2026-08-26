@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Campo from '../components/Campo'
 import { useRegistros, useFuncionarios, useConfig } from '../lib/hooks'
 import { fmtValorDia, getHoje, fmtMoeda, fmtNum, fmtData, calcValor, pctMeta, corPct, isProducao } from '../lib/utils'
 import Modal from '../components/Modal'
@@ -71,29 +72,14 @@ export default function Registro() {
       <div className="card mb16">
         <div className="card-title">⚡ Registro Rápido</div>
         <div className="quick-reg">
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Data</label>
-            <input type="date" value={dataReg} max={hoje} onChange={e => setDataReg(e.target.value)} />
-          </div>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Funcionário</label>
-            <select value={form.funcId} onChange={e => setForm(f => ({ ...f, funcId: e.target.value }))}>
+          <Campo label="Data" style={{ margin: 0 }}><input type="date" value={dataReg} max={hoje} onChange={e => setDataReg(e.target.value)} /></Campo>
+          <Campo label="Funcionário" style={{ margin: 0 }}><select value={form.funcId} onChange={e => setForm(f => ({ ...f, funcId: e.target.value }))}>
               <option value="">Selecionar...</option>
               {ativos.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-            </select>
-          </div>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Qtd. Produzida</label>
-            <input type="number" min="0" placeholder="Ex: 3000" value={form.qty} onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} />
-          </div>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Qtd. Aproveitada</label>
-            <input type="number" min="0" placeholder="Opcional" value={form.aprov} onChange={e => setForm(f => ({ ...f, aprov: e.target.value }))} />
-          </div>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Observação</label>
-            <input type="text" placeholder="Opcional" value={form.obs} onChange={e => setForm(f => ({ ...f, obs: e.target.value }))} />
-          </div>
+            </select></Campo>
+          <Campo label="Qtd. Produzida" style={{ margin: 0 }}><input type="number" min="0" placeholder="Ex: 3000" value={form.qty} onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} /></Campo>
+          <Campo label="Qtd. Aproveitada" style={{ margin: 0 }}><input type="number" min="0" placeholder="Opcional" value={form.aprov} onChange={e => setForm(f => ({ ...f, aprov: e.target.value }))} /></Campo>
+          <Campo label="Observação" style={{ margin: 0 }}><input type="text" placeholder="Opcional" value={form.obs} onChange={e => setForm(f => ({ ...f, obs: e.target.value }))} /></Campo>
           <button className="btn btn-primary" onClick={handleRegistrar} disabled={saving || !form.funcId || !form.qty} style={{ height: 42 }}>
             {saving ? '...' : '✓ Registrar'}
           </button>
@@ -173,14 +159,14 @@ export default function Registro() {
       {editando && (
         <Modal title="Editar Registro" onClose={() => setEditando(null)}>
           <div className="fgrid">
-            <div className="fg"><label>Funcionário</label><input value={editando.func_nome || ''} readOnly /></div>
-            <div className="fg"><label>Data</label><input type="date" value={editando.data} max={hoje} onChange={e => setEditando(v => ({ ...v, data: e.target.value }))} /></div>
-            <div className="fg"><label>Qtd. Produzida</label><input type="number" min="0" value={editando.quantidade} onChange={e => setEditando(v => ({ ...v, quantidade: e.target.value }))} /></div>
-            <div className="fg"><label>Valor</label><input value={editando.valor == null ? 'definido na conferência' : fmtMoeda(Number(editando.valor))} readOnly /></div>
-            <div className="fg"><label>Qtd. Aproveitada</label><input type="number" min="0" placeholder="Opcional" value={editando.aproveitado || ''} onChange={e => setEditando(v => ({ ...v, aproveitado: e.target.value }))} /></div>
-            <div className="fg"><label>Taxa</label><input value={editando.aproveitado && editando.quantidade ? Math.round(editando.aproveitado / editando.quantidade * 100) + '%' : '—'} readOnly /></div>
+            <Campo label="Funcionário"><input value={editando.func_nome || ''} readOnly /></Campo>
+            <Campo label="Data"><input type="date" value={editando.data} max={hoje} onChange={e => setEditando(v => ({ ...v, data: e.target.value }))} /></Campo>
+            <Campo label="Qtd. Produzida"><input type="number" min="0" value={editando.quantidade} onChange={e => setEditando(v => ({ ...v, quantidade: e.target.value }))} /></Campo>
+            <Campo label="Valor"><input value={editando.valor == null ? 'definido na conferência' : fmtMoeda(Number(editando.valor))} readOnly /></Campo>
+            <Campo label="Qtd. Aproveitada"><input type="number" min="0" placeholder="Opcional" value={editando.aproveitado || ''} onChange={e => setEditando(v => ({ ...v, aproveitado: e.target.value }))} /></Campo>
+            <Campo label="Taxa"><input value={editando.aproveitado && editando.quantidade ? Math.round(editando.aproveitado / editando.quantidade * 100) + '%' : '—'} readOnly /></Campo>
           </div>
-          <div className="fg"><label>Observação</label><input value={editando.obs || ''} onChange={e => setEditando(v => ({ ...v, obs: e.target.value }))} /></div>
+          <Campo label="Observação"><input value={editando.obs || ''} onChange={e => setEditando(v => ({ ...v, obs: e.target.value }))} /></Campo>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn btn-primary" onClick={handleSalvarEdicao}>Salvar</button>
             <button className="btn btn-secondary" onClick={() => setEditando(null)}>Cancelar</button>

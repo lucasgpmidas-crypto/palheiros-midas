@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import Campo from '../components/Campo'
 import { useFechamentos, useAuditoria, useConfig } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
 import { getHoje, fmtNum, fmtData, getQuinzenaAtual } from '../lib/utils'
@@ -95,18 +96,9 @@ export default function Fechamento() {
       <div className="card mb16">
         <div className="card-title">🔒 Fechar Período de Folha</div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Início</label>
-            <input type="date" value={form.inicio} max={form.fim || hoje} onChange={e => setForm(f => ({ ...f, inicio: e.target.value }))} />
-          </div>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Fim</label>
-            <input type="date" value={form.fim} min={form.inicio} onChange={e => setForm(f => ({ ...f, fim: e.target.value }))} />
-          </div>
-          <div className="fg" style={{ margin: 0, flex: 1, minWidth: 160 }}>
-            <label>Observação</label>
-            <input value={form.obs} placeholder="Ex: quinzena paga em 24/07" onChange={e => setForm(f => ({ ...f, obs: e.target.value }))} />
-          </div>
+          <Campo label="Início" style={{ margin: 0 }}><input type="date" value={form.inicio} max={form.fim || hoje} onChange={e => setForm(f => ({ ...f, inicio: e.target.value }))} /></Campo>
+          <Campo label="Fim" style={{ margin: 0 }}><input type="date" value={form.fim} min={form.inicio} onChange={e => setForm(f => ({ ...f, fim: e.target.value }))} /></Campo>
+          <Campo label="Observação" style={{ margin: 0, flex: 1, minWidth: 160 }}><input value={form.obs} placeholder="Ex: quinzena paga em 24/07" onChange={e => setForm(f => ({ ...f, obs: e.target.value }))} /></Campo>
           <button className="btn btn-secondary btn-sm" onClick={usarSugestao} title={`Preenche até ${fmtData(sugestaoFim)} (dia anterior à quinzena atual)`}>💡 Sugerir</button>
           <button className="btn btn-primary" onClick={validar} style={{ height: 40 }}>🔒 Fechar</button>
         </div>

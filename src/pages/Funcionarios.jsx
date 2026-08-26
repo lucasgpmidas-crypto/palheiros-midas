@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Campo from '../components/Campo'
 import { useFuncionarios } from '../lib/hooks'
 import { fmtData, fmtNum, getHoje } from '../lib/utils'
 import Modal from '../components/Modal'
@@ -109,40 +110,30 @@ export default function Funcionarios() {
       {modal && (
         <Modal title={editId ? 'Editar Funcionário' : 'Novo Funcionário'} onClose={() => setModal(false)}>
           <div className="fgrid">
-            <div className="fg"><label>Nome Completo *</label><input value={form.nome} onChange={e => setF('nome', e.target.value)} placeholder="Nome do enrolador" autoFocus /></div>
-            <div className="fg"><label>Data de Entrada</label><input type="date" value={form.entrada} onChange={e => setF('entrada', e.target.value)} /></div>
-            <div className="fg"><label>Meta Diária (un.)</label><input type="number" min="1" value={form.meta_diaria} onChange={e => setF('meta_diaria', e.target.value)} /></div>
-            <div className="fg"><label>Situação</label>
-              <select value={form.situacao} onChange={e => setF('situacao', e.target.value)}>
+            <Campo label="Nome Completo *"><input value={form.nome} onChange={e => setF('nome', e.target.value)} placeholder="Nome do enrolador" autoFocus /></Campo>
+            <Campo label="Data de Entrada"><input type="date" value={form.entrada} onChange={e => setF('entrada', e.target.value)} /></Campo>
+            <Campo label="Meta Diária (un.)"><input type="number" min="1" value={form.meta_diaria} onChange={e => setF('meta_diaria', e.target.value)} /></Campo>
+            <Campo label="Situação"><select value={form.situacao} onChange={e => setF('situacao', e.target.value)}>
                 <option value="ativo">Ativo</option>
                 <option value="inativo">Inativo</option>
-              </select>
-            </div>
-            <div className="fg"><label>Setor</label>
-              <select value={form.setor} onChange={e => setF('setor', e.target.value)}>
+              </select></Campo>
+            <Campo label="Setor"><select value={form.setor} onChange={e => setF('setor', e.target.value)}>
                 <option value="producao">🌾 Produção (enrolador)</option>
                 <option value="finalizacao">📦 Finalização (revisa/empacota)</option>
-              </select>
-            </div>
+              </select></Campo>
             {form.setor === 'producao' && (
               <>
-                <div className="fg"><label>Modalidade (parceria)</label>
-                  <select value={form.modalidade} onChange={e => setF('modalidade', e.target.value)}>
+                <Campo label="Modalidade (parceria)"><select value={form.modalidade} onChange={e => setF('modalidade', e.target.value)}>
                     <option value="cp">🏭 CP Barretos (faixa premium + ajuda de custo)</option>
                     <option value="externo">🏠 Externo (produz em casa)</option>
-                  </select>
-                </div>
-                <div className="fg"><label>Início na parceria (prêmio de qualificação)</label>
-                  <input type="date" value={form.parceria_desde} onChange={e => setF('parceria_desde', e.target.value)} />
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Marco das 6 quinzenas de qualificação. Preencha só para parceiro <strong>novo</strong> no programa — em branco, ele não concorre ao prêmio de qualificação.</div>
-                </div>
-                <div className="fg"><label>Padrinho (recebe prêmio se o afilhado qualificar)</label>
-                  <select value={form.padrinho_id} onChange={e => setF('padrinho_id', e.target.value)}>
+                  </select></Campo>
+                <Campo label="Início na parceria (prêmio de qualificação)"><input type="date" value={form.parceria_desde} onChange={e => setF('parceria_desde', e.target.value)} />
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Marco das 6 quinzenas de qualificação. Preencha só para parceiro <strong>novo</strong> no programa — em branco, ele não concorre ao prêmio de qualificação.</div></Campo>
+                <Campo label="Padrinho (recebe prêmio se o afilhado qualificar)"><select value={form.padrinho_id} onChange={e => setF('padrinho_id', e.target.value)}>
                     <option value="">— sem padrinho —</option>
                     {funcionarios.filter(x => x.id !== editId && (x.setor || 'producao') === 'producao')
                       .map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
-                  </select>
-                </div>
+                  </select></Campo>
               </>
             )}
           </div>
@@ -151,7 +142,7 @@ export default function Funcionarios() {
             <input type="password" maxLength={4} inputMode="numeric" placeholder={editId ? 'Deixe em branco para não alterar' : '4 dígitos'} value={form.pin} onChange={e => setF('pin', e.target.value)} style={{ width: 160, letterSpacing: 6, fontSize: 18, textAlign: 'center' }} />
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>O funcionário usa este PIN para acessar o sistema. Depois de salvo ele não pode ser consultado por ninguém — se o funcionário esquecer, defina um novo aqui.</div>
           </div>
-          <div className="fg"><label>Observações</label><textarea value={form.obs} onChange={e => setF('obs', e.target.value)} placeholder="Observações..." /></div>
+          <Campo label="Observações"><textarea value={form.obs} onChange={e => setF('obs', e.target.value)} placeholder="Observações..." /></Campo>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn btn-primary" onClick={handleSalvar} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</button>
             <button className="btn btn-secondary" onClick={() => setModal(false)}>Cancelar</button>

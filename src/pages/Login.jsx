@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import Campo from '../components/Campo'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { getIniciais, avatarCor } from '../lib/utils'
@@ -153,14 +154,8 @@ export default function Login() {
         <form onSubmit={handleSubmit}>
           {modo === 'admin' ? (
             <>
-              <div className="fg" style={{ textAlign:'left' }}>
-                <label>Email</label>
-                <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com" autoFocus />
-              </div>
-              <div className="fg" style={{ textAlign:'left' }}>
-                <label>Senha</label>
-                <input type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="••••••" onKeyDown={e=>e.key==='Enter'&&handleSubmit(e)} />
-              </div>
+              <Campo label="Email" style={{ textAlign:'left' }}><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com" autoFocus /></Campo>
+              <Campo label="Senha" style={{ textAlign:'left' }}><input type="password" value={senha} onChange={e=>setSenha(e.target.value)} placeholder="••••••" onKeyDown={e=>e.key==='Enter'&&handleSubmit(e)} /></Campo>
             </>
           ) : (
             <>

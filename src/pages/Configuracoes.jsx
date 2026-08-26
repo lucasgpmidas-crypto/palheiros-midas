@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Campo from '../components/Campo'
 import { useConfig } from '../lib/hooks'
 import { fmtMoeda, fmtNum } from '../lib/utils'
 import toast from 'react-hot-toast'
@@ -138,14 +139,8 @@ export default function Configuracoes() {
       <div className="card mb16">
         <div className="card-title">💰 Valor por 1.000 Unidades</div>
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Valor Atual</label>
-            <input value={fmtMoeda(valorMil)} readOnly style={{ width: 160, opacity: .7, fontWeight: 700, color: 'var(--gold-light)' }} />
-          </div>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Novo Valor (R$)</label>
-            <input type="number" min="1" step="0.01" placeholder={String(valorMil)} value={novoValor} onChange={e => setNovoValor(e.target.value)} style={{ width: 160 }} />
-          </div>
+          <Campo label="Valor Atual" style={{ margin: 0 }}><input value={fmtMoeda(valorMil)} readOnly style={{ width: 160, opacity: .7, fontWeight: 700, color: 'var(--gold-light)' }} /></Campo>
+          <Campo label="Novo Valor (R$)" style={{ margin: 0 }}><input type="number" min="1" step="0.01" placeholder={String(valorMil)} value={novoValor} onChange={e => setNovoValor(e.target.value)} style={{ width: 160 }} /></Campo>
           <button className="btn btn-primary" onClick={handleSalvar} disabled={saving || !novoValor}>
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
@@ -171,18 +166,9 @@ export default function Configuracoes() {
           Usado na conferência automática: Diferença = Produzido − Perda − (displays × un. + maços × un.)
         </div>
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Un. por Display (atual: {fmtNum(uniDisplay)})</label>
-            <input type="number" min="1" placeholder={String(uniDisplay)} value={emb.display} onChange={e => setEmb(v => ({ ...v, display: e.target.value }))} style={{ width: 160 }} />
-          </div>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Un. por Maço (atual: {fmtNum(uniMaco)})</label>
-            <input type="number" min="1" placeholder={String(uniMaco)} value={emb.maco} onChange={e => setEmb(v => ({ ...v, maco: e.target.value }))} style={{ width: 160 }} />
-          </div>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Tolerância % (atual: {tolerancia}%)</label>
-            <input type="number" min="0" step="0.5" placeholder={String(tolerancia)} value={emb.tol} onChange={e => setEmb(v => ({ ...v, tol: e.target.value }))} style={{ width: 160 }} />
-          </div>
+          <Campo label={<>Un. por Display (atual: {fmtNum(uniDisplay)})</>} style={{ margin: 0 }}><input type="number" min="1" placeholder={String(uniDisplay)} value={emb.display} onChange={e => setEmb(v => ({ ...v, display: e.target.value }))} style={{ width: 160 }} /></Campo>
+          <Campo label={<>Un. por Maço (atual: {fmtNum(uniMaco)})</>} style={{ margin: 0 }}><input type="number" min="1" placeholder={String(uniMaco)} value={emb.maco} onChange={e => setEmb(v => ({ ...v, maco: e.target.value }))} style={{ width: 160 }} /></Campo>
+          <Campo label={<>Tolerância % (atual: {tolerancia}%)</>} style={{ margin: 0 }}><input type="number" min="0" step="0.5" placeholder={String(tolerancia)} value={emb.tol} onChange={e => setEmb(v => ({ ...v, tol: e.target.value }))} style={{ width: 160 }} /></Campo>
           <button className="btn btn-primary" onClick={handleSalvarEmb} disabled={savingEmb || (!emb.display && !emb.maco && !emb.tol)}>
             {savingEmb ? 'Salvando...' : 'Salvar'}
           </button>
@@ -195,14 +181,8 @@ export default function Configuracoes() {
           Define o período que o funcionário vê como "quinzena atual" e os botões de quinzena da Folha de Pagamento.
         </div>
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Dia que abre a 1ª quinzena (atual: {quinzenaD1})</label>
-            <input type="number" min="1" max="28" placeholder={String(quinzenaD1)} value={qz.d1} onChange={e => setQz(v => ({ ...v, d1: e.target.value }))} style={{ width: 160 }} />
-          </div>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Dia que abre a 2ª quinzena (atual: {quinzenaD2})</label>
-            <input type="number" min="1" max="28" placeholder={String(quinzenaD2)} value={qz.d2} onChange={e => setQz(v => ({ ...v, d2: e.target.value }))} style={{ width: 160 }} />
-          </div>
+          <Campo label={<>Dia que abre a 1ª quinzena (atual: {quinzenaD1})</>} style={{ margin: 0 }}><input type="number" min="1" max="28" placeholder={String(quinzenaD1)} value={qz.d1} onChange={e => setQz(v => ({ ...v, d1: e.target.value }))} style={{ width: 160 }} /></Campo>
+          <Campo label={<>Dia que abre a 2ª quinzena (atual: {quinzenaD2})</>} style={{ margin: 0 }}><input type="number" min="1" max="28" placeholder={String(quinzenaD2)} value={qz.d2} onChange={e => setQz(v => ({ ...v, d2: e.target.value }))} style={{ width: 160 }} /></Campo>
           <button className="btn btn-primary" onClick={handleSalvarQz} disabled={savingQz || (!qz.d1 && !qz.d2)}>
             {savingQz ? 'Salvando...' : 'Salvar'}
           </button>
@@ -224,11 +204,8 @@ export default function Configuracoes() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
           {PC_CAMPOS.map(([chave, key, label]) => (
-            <div className="fg" key={chave} style={{ margin: 0 }}>
-              <label>{label} (atual: {cfg[key]})</label>
-              <input type="number" min="0" step="0.5" placeholder={String(cfg[key])} value={pc[chave] ?? ''}
-                onChange={e => setPc(v => ({ ...v, [chave]: e.target.value }))} />
-            </div>
+            <Campo label={<>{label} (atual: {cfg[key]})</>} key={chave} style={{ margin: 0 }}><input type="number" min="0" step="0.5" placeholder={String(cfg[key])} value={pc[chave] ?? ''}
+                onChange={e => setPc(v => ({ ...v, [chave]: e.target.value }))} /></Campo>
           ))}
         </div>
         <div style={{ marginTop: 14, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -249,11 +226,8 @@ export default function Configuracoes() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
           {PM_CAMPOS.map(([chave, key, label]) => (
-            <div className="fg" key={chave} style={{ margin: 0 }}>
-              <label>{label} (atual: {cfg[key]})</label>
-              <input type="number" min="0" step="1" placeholder={String(cfg[key])} value={pm[chave] ?? ''}
-                onChange={e => setPm(v => ({ ...v, [chave]: e.target.value }))} />
-            </div>
+            <Campo label={<>{label} (atual: {cfg[key]})</>} key={chave} style={{ margin: 0 }}><input type="number" min="0" step="1" placeholder={String(cfg[key])} value={pm[chave] ?? ''}
+                onChange={e => setPm(v => ({ ...v, [chave]: e.target.value }))} /></Campo>
           ))}
         </div>
         <div style={{ marginTop: 14 }}>
@@ -269,14 +243,8 @@ export default function Configuracoes() {
           O sistema avisa quando a produção declarada em Barretos não aparece na revisão de Orlândia dentro do prazo, e quando o estoque de displays fica abaixo do mínimo (0 = desativado).
         </div>
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Dias até alertar produção sem revisão (atual: {diasSemRevisao})</label>
-            <input type="number" min="1" placeholder={String(diasSemRevisao)} value={al.dias} onChange={e => setAl(v => ({ ...v, dias: e.target.value }))} style={{ width: 160 }} />
-          </div>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Estoque mínimo em displays (atual: {fmtNum(estoqueMinimo)})</label>
-            <input type="number" min="0" placeholder={String(estoqueMinimo)} value={al.minimo} onChange={e => setAl(v => ({ ...v, minimo: e.target.value }))} style={{ width: 160 }} />
-          </div>
+          <Campo label={<>Dias até alertar produção sem revisão (atual: {diasSemRevisao})</>} style={{ margin: 0 }}><input type="number" min="1" placeholder={String(diasSemRevisao)} value={al.dias} onChange={e => setAl(v => ({ ...v, dias: e.target.value }))} style={{ width: 160 }} /></Campo>
+          <Campo label={<>Estoque mínimo em displays (atual: {fmtNum(estoqueMinimo)})</>} style={{ margin: 0 }}><input type="number" min="0" placeholder={String(estoqueMinimo)} value={al.minimo} onChange={e => setAl(v => ({ ...v, minimo: e.target.value }))} style={{ width: 160 }} /></Campo>
           <button className="btn btn-primary" onClick={handleSalvarAl} disabled={savingAl || (al.dias === '' && al.minimo === '')}>
             {savingAl ? 'Salvando...' : 'Salvar'}
           </button>

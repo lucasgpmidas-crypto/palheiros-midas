@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Campo from '../components/Campo'
 import { subDays, format } from 'date-fns'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
 import { fmtValorDia, getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, exportCSV } from '../lib/utils'
@@ -46,15 +47,12 @@ export default function Historico() {
     <div>
       <div className="card mb16">
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0, flex: 1, minWidth: 160 }}>
-            <label>Funcionário</label>
-            <select value={filtros.funcId} onChange={e => setFiltros(f => ({ ...f, funcId: e.target.value }))}>
+          <Campo label="Funcionário" style={{ margin: 0, flex: 1, minWidth: 160 }}><select value={filtros.funcId} onChange={e => setFiltros(f => ({ ...f, funcId: e.target.value }))}>
               <option value="">Todos</option>
               {funcionarios.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-            </select>
-          </div>
-          <div className="fg" style={{ margin: 0 }}><label>De</label><input type="date" value={filtros.dataInicio} onChange={e => setFiltros(f => ({ ...f, dataInicio: e.target.value }))} /></div>
-          <div className="fg" style={{ margin: 0 }}><label>Até</label><input type="date" value={filtros.dataFim} max={hoje} onChange={e => setFiltros(f => ({ ...f, dataFim: e.target.value }))} /></div>
+            </select></Campo>
+          <Campo label="De" style={{ margin: 0 }}><input type="date" value={filtros.dataInicio} onChange={e => setFiltros(f => ({ ...f, dataInicio: e.target.value }))} /></Campo>
+          <Campo label="Até" style={{ margin: 0 }}><input type="date" value={filtros.dataFim} max={hoje} onChange={e => setFiltros(f => ({ ...f, dataFim: e.target.value }))} /></Campo>
           <button className="btn btn-primary" onClick={() => setAplicados({ ...filtros })}>🔍 Filtrar</button>
           <button className="btn btn-secondary" onClick={handleExportar}>⬇ CSV</button>
         </div>

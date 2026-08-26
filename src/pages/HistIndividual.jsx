@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Campo from '../components/Campo'
 import Grafico from '../components/Grafico'
 import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -66,19 +67,13 @@ export default function HistIndividual() {
     <div>
       <div className="card mb16">
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0, minWidth: 200 }}>
-            <label>Funcionário</label>
-            <select value={funcId} onChange={e => setFuncId(e.target.value)} disabled={!isAdmin}>
+          <Campo label="Funcionário" style={{ margin: 0, minWidth: 200 }}><select value={funcId} onChange={e => setFuncId(e.target.value)} disabled={!isAdmin}>
               <option value="">Selecionar...</option>
               {ativos.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-            </select>
-          </div>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Período</label>
-            <select value={periodo} onChange={e => setPeriodo(e.target.value)}>
+            </select></Campo>
+          <Campo label="Período" style={{ margin: 0 }}><select value={periodo} onChange={e => setPeriodo(e.target.value)}>
               {[['7','7 dias'],['15','15 dias'],['30','30 dias'],['60','60 dias'],['90','90 dias']].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
+            </select></Campo>
           <button className="btn btn-secondary" onClick={exportar} disabled={!funcId}>⬇ CSV</button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import Campo from '../components/Campo'
 import { subDays, format } from 'date-fns'
 import { useCQ, useFuncionarios, useRegistros, useConfig } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
@@ -253,23 +254,15 @@ export default function ControleCQ() {
               o sistema divide entre os dias, proporcional ao aprovado de cada um.
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, alignItems: 'flex-end', marginBottom: 12 }}>
-              <div className="fg" style={{ margin: 0 }}><label>Parceiro</label>
-                <select value={embLote.funcId} onChange={e => setEmbLote(l => ({ ...l, funcId: e.target.value }))}>
+              <Campo label="Parceiro" style={{ margin: 0 }}><select value={embLote.funcId} onChange={e => setEmbLote(l => ({ ...l, funcId: e.target.value }))}>
                   <option value="">Selecionar...</option>
                   {ativos.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                </select>
-              </div>
-              <div className="fg" style={{ margin: 0 }}><label>Embalado em</label>
-                <input type="date" value={embLote.embaladoEm} max={hoje} onChange={e => setEmbLote(l => ({ ...l, embaladoEm: e.target.value }))} />
-              </div>
-              <div className="fg" style={{ margin: 0 }}><label>Displays (total)</label>
-                <input type="number" min="0" value={embLote.displays} placeholder={sugestaoEmb ? String(sugestaoEmb.displays) : '0'}
-                  onChange={e => setEmbLote(l => ({ ...l, displays: e.target.value }))} />
-              </div>
-              <div className="fg" style={{ margin: 0 }}><label>Maços (total)</label>
-                <input type="number" min="0" value={embLote.macos} placeholder={sugestaoEmb ? String(sugestaoEmb.macos) : '0'}
-                  onChange={e => setEmbLote(l => ({ ...l, macos: e.target.value }))} />
-              </div>
+                </select></Campo>
+              <Campo label="Embalado em" style={{ margin: 0 }}><input type="date" value={embLote.embaladoEm} max={hoje} onChange={e => setEmbLote(l => ({ ...l, embaladoEm: e.target.value }))} /></Campo>
+              <Campo label="Displays (total)" style={{ margin: 0 }}><input type="number" min="0" value={embLote.displays} placeholder={sugestaoEmb ? String(sugestaoEmb.displays) : '0'}
+                  onChange={e => setEmbLote(l => ({ ...l, displays: e.target.value }))} /></Campo>
+              <Campo label="Maços (total)" style={{ margin: 0 }}><input type="number" min="0" value={embLote.macos} placeholder={sugestaoEmb ? String(sugestaoEmb.macos) : '0'}
+                  onChange={e => setEmbLote(l => ({ ...l, macos: e.target.value }))} /></Campo>
             </div>
 
             {!embLote.funcId ? (
@@ -334,25 +327,15 @@ export default function ControleCQ() {
               informe <strong>quanto foi aprovado no total</strong> e o sistema divide o descarte entre os dias, proporcional ao tamanho de cada lote.
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, alignItems: 'flex-end', marginBottom: 12 }}>
-              <div className="fg" style={{ margin: 0 }}><label>Parceiro</label>
-                <select value={lote.funcId} onChange={e => setLote(l => ({ ...l, funcId: e.target.value }))}>
+              <Campo label="Parceiro" style={{ margin: 0 }}><select value={lote.funcId} onChange={e => setLote(l => ({ ...l, funcId: e.target.value }))}>
                   <option value="">Selecionar...</option>
                   {ativos.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                </select>
-              </div>
-              <div className="fg" style={{ margin: 0 }}><label>Tipo</label>
-                <select value={lote.tipo} onChange={e => setLote(l => ({ ...l, tipo: e.target.value }))}>{TIPOS.map(t => <option key={t} value={t}>{t}</option>)}</select>
-              </div>
-              <div className="fg" style={{ margin: 0 }}><label>Revisão fechada em</label>
-                <input type="date" value={lote.revisadoEm} max={hoje} onChange={e => setLote(l => ({ ...l, revisadoEm: e.target.value }))} />
-              </div>
-              <div className="fg" style={{ margin: 0 }}><label>Total aprovado na revisão</label>
-                <input type="number" min="0" value={lote.revisado} placeholder={totalEntregueLote ? String(totalEntregueLote) : 'Ex: 2900'}
-                  onChange={e => setLote(l => ({ ...l, revisado: e.target.value }))} />
-              </div>
-              <div className="fg" style={{ margin: 0 }}><label>Observação</label>
-                <input type="text" value={lote.obs} placeholder="Opcional..." onChange={e => setLote(l => ({ ...l, obs: e.target.value }))} />
-              </div>
+                </select></Campo>
+              <Campo label="Tipo" style={{ margin: 0 }}><select value={lote.tipo} onChange={e => setLote(l => ({ ...l, tipo: e.target.value }))}>{TIPOS.map(t => <option key={t} value={t}>{t}</option>)}</select></Campo>
+              <Campo label="Revisão fechada em" style={{ margin: 0 }}><input type="date" value={lote.revisadoEm} max={hoje} onChange={e => setLote(l => ({ ...l, revisadoEm: e.target.value }))} /></Campo>
+              <Campo label="Total aprovado na revisão" style={{ margin: 0 }}><input type="number" min="0" value={lote.revisado} placeholder={totalEntregueLote ? String(totalEntregueLote) : 'Ex: 2900'}
+                  onChange={e => setLote(l => ({ ...l, revisado: e.target.value }))} /></Campo>
+              <Campo label="Observação" style={{ margin: 0 }}><input type="text" value={lote.obs} placeholder="Opcional..." onChange={e => setLote(l => ({ ...l, obs: e.target.value }))} /></Campo>
             </div>
 
             {!lote.funcId ? (
@@ -436,7 +419,7 @@ export default function ControleCQ() {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-          <div className="fg" style={{ margin: 0, flex: 1 }}><label>Observação</label><input type="text" value={form.obs} placeholder="Observações..." onChange={e => setF('obs', e.target.value)} /></div>
+          <Campo label="Observação" style={{ margin: 0, flex: 1 }}><input type="text" value={form.obs} placeholder="Observações..." onChange={e => setF('obs', e.target.value)} /></Campo>
           <button className="btn btn-primary" onClick={handleRegistrar} disabled={saving} style={{ height: 40 }}>
             {saving ? '...' : '✓ Registrar Revisão'}
           </button>
@@ -479,18 +462,14 @@ export default function ControleCQ() {
       <div className="card mb16">
         <div className="card-title">🔎 Consultar o que já foi lançado</div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0, minWidth: 160 }}><label>Parceiro</label>
-            <select value={filtros.funcId} onChange={e => setFiltros(f => ({ ...f, funcId: e.target.value }))}>
+          <Campo label="Parceiro" style={{ margin: 0, minWidth: 160 }}><select value={filtros.funcId} onChange={e => setFiltros(f => ({ ...f, funcId: e.target.value }))}>
               <option value="">Todos</option>{funcionarios.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-            </select>
-          </div>
-          <div className="fg" style={{ margin: 0 }}><label>De</label><input type="date" value={filtros.dataInicio} onChange={e => setFiltros(f => ({ ...f, dataInicio: e.target.value }))} /></div>
-          <div className="fg" style={{ margin: 0 }}><label>Até</label><input type="date" value={filtros.dataFim} max={hoje} onChange={e => setFiltros(f => ({ ...f, dataFim: e.target.value }))} /></div>
-          <div className="fg" style={{ margin: 0 }}><label>Tipo</label>
-            <select value={filtros.tipo} onChange={e => setFiltros(f => ({ ...f, tipo: e.target.value }))}>
+            </select></Campo>
+          <Campo label="De" style={{ margin: 0 }}><input type="date" value={filtros.dataInicio} onChange={e => setFiltros(f => ({ ...f, dataInicio: e.target.value }))} /></Campo>
+          <Campo label="Até" style={{ margin: 0 }}><input type="date" value={filtros.dataFim} max={hoje} onChange={e => setFiltros(f => ({ ...f, dataFim: e.target.value }))} /></Campo>
+          <Campo label="Tipo" style={{ margin: 0 }}><select value={filtros.tipo} onChange={e => setFiltros(f => ({ ...f, tipo: e.target.value }))}>
               <option value="">Todos</option>{TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
+            </select></Campo>
           <button className="btn btn-primary btn-sm" onClick={() => setAplicados({ ...filtros })}>🔍 Filtrar</button>
           <button className="btn btn-secondary btn-sm" onClick={handleExportar}>⬇ CSV</button>
         </div>
@@ -587,17 +566,17 @@ export default function ControleCQ() {
       {editando && (
         <Modal title="Editar Registro CQ" onClose={() => setEditando(null)} width={600}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div className="fg"><label>Parceiro</label><input value={editando.funcionarios?.nome || ''} readOnly /></div>
-            <div className="fg"><label>Dia de produção</label><input type="date" value={editando.data} max={hoje} onChange={e => setEditando(v => ({ ...v, data: e.target.value }))} /></div>
-            <div className="fg"><label>Tipo</label><select value={editando.tipo} onChange={e => setEditando(v => ({ ...v, tipo: e.target.value }))}>{TIPOS.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-            <div className="fg"><label>Quanto veio</label><input type="number" min="0" value={editando.entregue} onChange={e => setEditando(v => ({ ...v, entregue: e.target.value }))} /></div>
-            <div className="fg"><label>Quanto prestou</label><input type="number" min="0" value={editando.revisada} onChange={e => setEditando(v => ({ ...v, revisada: e.target.value }))} /></div>
-            <div className="fg"><label>Display</label><input type="number" min="0" value={editando.display || 0} onChange={e => setEditando(v => ({ ...v, display: e.target.value }))} /></div>
-            <div className="fg"><label>Maços</label><input type="number" min="0" value={editando.macos || 0} onChange={e => setEditando(v => ({ ...v, macos: e.target.value }))} /></div>
-            <div className="fg"><label>Descarte (auto)</label><input value={editando.entregue > 0 ? fmtNum(editando.entregue - editando.revisada) + ' un.' : '—'} readOnly /></div>
-            <div className="fg"><label>% Aproveit. (auto)</label><input value={editando.entregue > 0 ? Math.round(editando.revisada / editando.entregue * 100) + '%' : '—'} readOnly /></div>
+            <Campo label="Parceiro"><input value={editando.funcionarios?.nome || ''} readOnly /></Campo>
+            <Campo label="Dia de produção"><input type="date" value={editando.data} max={hoje} onChange={e => setEditando(v => ({ ...v, data: e.target.value }))} /></Campo>
+            <Campo label="Tipo"><select value={editando.tipo} onChange={e => setEditando(v => ({ ...v, tipo: e.target.value }))}>{TIPOS.map(t => <option key={t} value={t}>{t}</option>)}</select></Campo>
+            <Campo label="Quanto veio"><input type="number" min="0" value={editando.entregue} onChange={e => setEditando(v => ({ ...v, entregue: e.target.value }))} /></Campo>
+            <Campo label="Quanto prestou"><input type="number" min="0" value={editando.revisada} onChange={e => setEditando(v => ({ ...v, revisada: e.target.value }))} /></Campo>
+            <Campo label="Display"><input type="number" min="0" value={editando.display || 0} onChange={e => setEditando(v => ({ ...v, display: e.target.value }))} /></Campo>
+            <Campo label="Maços"><input type="number" min="0" value={editando.macos || 0} onChange={e => setEditando(v => ({ ...v, macos: e.target.value }))} /></Campo>
+            <Campo label="Descarte (auto)"><input value={editando.entregue > 0 ? fmtNum(editando.entregue - editando.revisada) + ' un.' : '—'} readOnly /></Campo>
+            <Campo label="% Aproveit. (auto)"><input value={editando.entregue > 0 ? Math.round(editando.revisada / editando.entregue * 100) + '%' : '—'} readOnly /></Campo>
           </div>
-          <div className="fg"><label>Observação</label><input value={editando.obs || ''} onChange={e => setEditando(v => ({ ...v, obs: e.target.value }))} /></div>
+          <Campo label="Observação"><input value={editando.obs || ''} onChange={e => setEditando(v => ({ ...v, obs: e.target.value }))} /></Campo>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn btn-primary" onClick={handleSalvarEdicao}>Salvar</button>
             <button className="btn btn-secondary" onClick={() => setEditando(null)}>Cancelar</button>
@@ -617,8 +596,8 @@ export default function ControleCQ() {
             {embalando.funcionarios?.nome} — {fmtData(embalando.data)} · {fmtNum(embalando.revisada)} un. revisadas
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div className="fg"><label>Displays</label><input type="number" min="0" value={emb.display} placeholder="47" onChange={e => setEmb(v => ({ ...v, display: e.target.value }))} /></div>
-            <div className="fg"><label>Maços</label><input type="number" min="0" value={emb.macos} placeholder="15" onChange={e => setEmb(v => ({ ...v, macos: e.target.value }))} /></div>
+            <Campo label="Displays"><input type="number" min="0" value={emb.display} placeholder="47" onChange={e => setEmb(v => ({ ...v, display: e.target.value }))} /></Campo>
+            <Campo label="Maços"><input type="number" min="0" value={emb.macos} placeholder="15" onChange={e => setEmb(v => ({ ...v, macos: e.target.value }))} /></Campo>
           </div>
           {sugEmb && (sugEmb.displays > 0 || sugEmb.macos > 0) && (
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', background: 'rgba(59,130,246,.07)', border: '1px solid rgba(59,130,246,.2)', borderRadius: 'var(--rs)', padding: '8px 14px', fontSize: 12.5, marginBottom: 10 }}>

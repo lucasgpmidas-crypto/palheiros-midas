@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import Campo from '../components/Campo'
 import { useFuncionarios, useConfig, useApuracaoPremios } from '../lib/hooks'
 import { supabase, buscarPaginado } from '../lib/supabase'
 import {
@@ -108,12 +109,9 @@ export default function Indicadores() {
     <div>
       <div className="card mb16">
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 14 }}>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Ano</label>
-            <select value={ano} onChange={e => setAno(Number(e.target.value))} style={{ width: 120 }}>
+          <Campo label="Ano" style={{ margin: 0 }}><select value={ano} onChange={e => setAno(Number(e.target.value))} style={{ width: 120 }}>
               {[anoAtual, anoAtual - 1, anoAtual - 2].map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </div>
+            </select></Campo>
           <button className="btn btn-secondary" onClick={() => exportCSV(linhasCSV(), `indicadores_${ano}.csv`)} disabled={!comMovimento.length}>⬇ CSV</button>
           <button className="btn btn-secondary" onClick={() => exportXLSX([{ name: 'Indicadores', rows: linhasCSV() }], `indicadores_${ano}.xlsx`)} disabled={!comMovimento.length} style={{ color: 'var(--green)', borderColor: 'rgba(40,180,133,.3)' }}>⬇ Excel</button>
         </div>

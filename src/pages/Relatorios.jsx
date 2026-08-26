@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Campo from '../components/Campo'
 import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
 import { getHoje, getOntem, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, getSemana, getMes, getQuinzena, getQuinzenaAtual, exportCSV, exportXLSX, isProducao, calcParceria, fmtMilheiros, corQualidade } from '../lib/utils'
 import { format, subDays } from 'date-fns'
@@ -42,7 +43,7 @@ function TabDiario({ funcionarios, valorMil }) {
     <div>
       <div className="card mb16">
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0 }}><label>Data</label><input type="date" value={data} max={getHoje()} onChange={e => setData(e.target.value)} /></div>
+          <Campo label="Data" style={{ margin: 0 }}><input type="date" value={data} max={getHoje()} onChange={e => setData(e.target.value)} /></Campo>
           <button className="btn btn-secondary btn-sm" onClick={() => setData(getHoje())}>Hoje</button>
           <button className="btn btn-secondary btn-sm" onClick={() => setData(getOntem())}>Ontem</button>
           <button className="btn btn-secondary" onClick={exportarCSV}>⬇ CSV</button>
@@ -86,7 +87,7 @@ function TabSemanal({ funcionarios, valorMil }) {
     <div>
       <div className="card mb16">
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0 }}><label>Semana (qualquer dia)</label><input type="date" value={data} onChange={e => setData(e.target.value)} /></div>
+          <Campo label="Semana (qualquer dia)" style={{ margin: 0 }}><input type="date" value={data} onChange={e => setData(e.target.value)} /></Campo>
           <button className="btn btn-secondary" onClick={exportarCSV}>⬇ CSV</button>
           <button className="btn btn-secondary" onClick={exportarXLSX} style={{ color: 'var(--green)', borderColor: 'rgba(40,180,133,.3)' }}>⬇ Excel</button>
         </div>
@@ -131,7 +132,7 @@ function TabMensal({ funcionarios, valorMil }) {
     <div>
       <div className="card mb16">
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0 }}><label>Mês</label><input type="month" value={mes} onChange={e => setMes(e.target.value)} /></div>
+          <Campo label="Mês" style={{ margin: 0 }}><input type="month" value={mes} onChange={e => setMes(e.target.value)} /></Campo>
           <button className="btn btn-secondary" onClick={exportarCSV}>⬇ CSV</button>
           <button className="btn btn-secondary" onClick={exportarXLSX} style={{ color: 'var(--green)', borderColor: 'rgba(40,180,133,.3)' }}>⬇ Excel</button>
         </div>
@@ -173,17 +174,13 @@ function TabIndividual({ funcionarios, valorMil }) {
     <div>
       <div className="card mb16">
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0, minWidth: 180 }}><label>Funcionário</label>
-            <select value={funcId} onChange={e => setFuncId(e.target.value)}>
+          <Campo label="Funcionário" style={{ margin: 0, minWidth: 180 }}><select value={funcId} onChange={e => setFuncId(e.target.value)}>
               <option value="">Selecionar...</option>
               {funcionarios.filter(f => f.situacao === 'ativo' && isProducao(f)).map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-            </select>
-          </div>
-          <div className="fg" style={{ margin: 0 }}><label>Período</label>
-            <select value={periodo} onChange={e => setPeriodo(e.target.value)}>
+            </select></Campo>
+          <Campo label="Período" style={{ margin: 0 }}><select value={periodo} onChange={e => setPeriodo(e.target.value)}>
               {[['7', '7 dias'], ['15', '15 dias'], ['30', '30 dias'], ['60', '60 dias'], ['90', '90 dias']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
+            </select></Campo>
           <button className="btn btn-secondary" onClick={exportarCSV} disabled={!funcId}>⬇ CSV</button>
           <button className="btn btn-secondary" onClick={exportarXLSX} disabled={!funcId} style={{ color: 'var(--green)', borderColor: 'rgba(40,180,133,.3)' }}>⬇ Excel</button>
         </div>
@@ -289,8 +286,8 @@ function TabFolha({ funcionarios, valorMil }) {
     <div>
       <div className="card mb16">
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0 }}><label>Início</label><input type="date" value={inicio} max={fim} onChange={e => setInicio(e.target.value)} /></div>
-          <div className="fg" style={{ margin: 0 }}><label>Fim</label><input type="date" value={fim} min={inicio} onChange={e => setFim(e.target.value)} /></div>
+          <Campo label="Início" style={{ margin: 0 }}><input type="date" value={inicio} max={fim} onChange={e => setInicio(e.target.value)} /></Campo>
+          <Campo label="Fim" style={{ margin: 0 }}><input type="date" value={fim} min={inicio} onChange={e => setFim(e.target.value)} /></Campo>
           <button className="btn btn-secondary btn-sm" onClick={() => aplicarQuinzena(1)} title={`Dia ${quinzenaD1} a ${quinzenaD2 - 1} do mês atual`}>1ª Quinzena</button>
           <button className="btn btn-secondary btn-sm" onClick={() => aplicarQuinzena(2)} title={`Dia ${quinzenaD2} ao dia ${quinzenaD1 - 1} do mês seguinte`}>2ª Quinzena</button>
           <button className="btn btn-secondary" onClick={exportarCSV} disabled={porFunc.length === 0}>⬇ CSV</button>

@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
+import Campo from '../components/Campo'
 import Grafico from '../components/Grafico'
 import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -239,14 +240,8 @@ export default function MinhaProducao() {
         <div className="card mb16">
           <div className="card-title">✏️ Registrar Minha Produção — Hoje</div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div className="fg" style={{ margin: 0, width: 170 }}>
-              <label>Quantidade (un.)</label>
-              <input type="number" min="0" inputMode="numeric" value={qtd} placeholder={`Ex: ${fmtNum(f?.meta_diaria || 3000)}`} onChange={e => setQtd(e.target.value)} />
-            </div>
-            <div className="fg" style={{ margin: 0, flex: 1, minWidth: 170 }}>
-              <label>Observação</label>
-              <input value={obs} placeholder="Opcional..." onChange={e => setObs(e.target.value)} />
-            </div>
+            <Campo label="Quantidade (un.)" style={{ margin: 0, width: 170 }}><input type="number" min="0" inputMode="numeric" value={qtd} placeholder={`Ex: ${fmtNum(f?.meta_diaria || 3000)}`} onChange={e => setQtd(e.target.value)} /></Campo>
+            <Campo label="Observação" style={{ margin: 0, flex: 1, minWidth: 170 }}><input value={obs} placeholder="Opcional..." onChange={e => setObs(e.target.value)} /></Campo>
             <button className="btn btn-primary" onClick={handleRegistrar} disabled={saving} style={{ height: 40 }}>
               {saving ? '...' : meuHoje ? '✓ Atualizar Registro' : '✓ Registrar Produção'}
             </button>
@@ -605,10 +600,7 @@ export default function MinhaProducao() {
           <div style={{ fontSize: 12.5, color: 'var(--text3)', marginBottom: 10 }}>
             Dia {fmtData(contestando.data)} · Perda registrada: <strong style={{ color: 'var(--red)' }}>{fmtNum(contestando.perda || 0)} un.</strong>
           </div>
-          <div className="fg">
-            <label>Motivo da contestação *</label>
-            <textarea rows={3} value={motivoCont} placeholder="Ex: entreguei 3.000 unidades contadas, a perda registrada não bate..." onChange={e => setMotivoCont(e.target.value)} />
-          </div>
+          <Campo label="Motivo da contestação *"><textarea rows={3} value={motivoCont} placeholder="Ex: entreguei 3.000 unidades contadas, a perda registrada não bate..." onChange={e => setMotivoCont(e.target.value)} /></Campo>
           <div style={{ fontSize: 11.5, color: 'var(--text3)', marginBottom: 12 }}>
             ℹ️ Sua contestação vai aparecer para o administrador, que vai conferir e te responder.
           </div>

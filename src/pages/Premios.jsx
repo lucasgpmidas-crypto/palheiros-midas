@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import Campo from '../components/Campo'
 import { useFuncionarios, useConfig, usePremios, useApuracaoPremios } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
 import { fmtMoeda, fmtData, fmtMilheiros, corQualidade, calcDestaqueAno, getHoje, getIniciais, avatarCor } from '../lib/utils'
@@ -96,12 +97,9 @@ export default function Premios() {
     <div>
       <div className="card mb16">
         <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Ano de apuração</label>
-            <select value={ano} onChange={e => setAno(Number(e.target.value))} style={{ width: 130 }}>
+          <Campo label="Ano de apuração" style={{ margin: 0 }}><select value={ano} onChange={e => setAno(Number(e.target.value))} style={{ width: 130 }}>
               {[anoAtual + 1, anoAtual, anoAtual - 1, anoAtual - 2].map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </div>
+            </select></Campo>
           <div>
             <div style={{ fontSize: 10.5, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1 }}>Provisão de prêmios anuais</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--gold-light)', fontFamily: 'Barlow Condensed,sans-serif' }}>{fmtMoeda(provisao)}</div>

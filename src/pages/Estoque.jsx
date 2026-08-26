@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import Campo from '../components/Campo'
 import { useExpedicoes, useConfig } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
 import { supabase, buscarPaginado } from '../lib/supabase'
@@ -97,24 +98,12 @@ export default function Estoque() {
       <div className="card mb16">
         <div className="card-title">🚚 Registrar Expedição (saída para o distribuidor)</div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Data</label>
-            <input type="date" value={form.data} max={hoje} onChange={e => setForm(f => ({ ...f, data: e.target.value }))} />
-          </div>
-          <div className="fg" style={{ margin: 0 }}>
-            <label>Tipo</label>
-            <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}>
+          <Campo label="Data" style={{ margin: 0 }}><input type="date" value={form.data} max={hoje} onChange={e => setForm(f => ({ ...f, data: e.target.value }))} /></Campo>
+          <Campo label="Tipo" style={{ margin: 0 }}><select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}>
               {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div className="fg" style={{ margin: 0, width: 150 }}>
-            <label>Displays</label>
-            <input type="number" min="1" placeholder="Ex: 50" value={form.displays} onChange={e => setForm(f => ({ ...f, displays: e.target.value }))} />
-          </div>
-          <div className="fg" style={{ margin: 0, flex: 1, minWidth: 160 }}>
-            <label>Observação</label>
-            <input value={form.obs} placeholder="Nota fiscal, ajuste de saldo..." onChange={e => setForm(f => ({ ...f, obs: e.target.value }))} />
-          </div>
+            </select></Campo>
+          <Campo label="Displays" style={{ margin: 0, width: 150 }}><input type="number" min="1" placeholder="Ex: 50" value={form.displays} onChange={e => setForm(f => ({ ...f, displays: e.target.value }))} /></Campo>
+          <Campo label="Observação" style={{ margin: 0, flex: 1, minWidth: 160 }}><input value={form.obs} placeholder="Nota fiscal, ajuste de saldo..." onChange={e => setForm(f => ({ ...f, obs: e.target.value }))} /></Campo>
           <button className="btn btn-primary" onClick={handleRegistrar} disabled={saving || !dForm} style={{ height: 40 }}>
             {saving ? '...' : '✓ Registrar'}
           </button>
@@ -176,12 +165,12 @@ export default function Estoque() {
       {editando && (
         <Modal title="Editar Expedição" onClose={() => setEditando(null)} width={460}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div className="fg"><label>Data</label><input type="date" value={editando.data} max={hoje} onChange={e => setEditando(v => ({ ...v, data: e.target.value }))} /></div>
-            <div className="fg"><label>Tipo</label><select value={editando.tipo} onChange={e => setEditando(v => ({ ...v, tipo: e.target.value }))}>{TIPOS.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-            <div className="fg"><label>Displays</label><input type="number" min="1" value={editando.displays} onChange={e => setEditando(v => ({ ...v, displays: e.target.value }))} /></div>
-            <div className="fg"><label>Unidades (auto)</label><input value={fmtNum((parseInt(editando.displays) || 0) * uniDisplay)} readOnly /></div>
+            <Campo label="Data"><input type="date" value={editando.data} max={hoje} onChange={e => setEditando(v => ({ ...v, data: e.target.value }))} /></Campo>
+            <Campo label="Tipo"><select value={editando.tipo} onChange={e => setEditando(v => ({ ...v, tipo: e.target.value }))}>{TIPOS.map(t => <option key={t} value={t}>{t}</option>)}</select></Campo>
+            <Campo label="Displays"><input type="number" min="1" value={editando.displays} onChange={e => setEditando(v => ({ ...v, displays: e.target.value }))} /></Campo>
+            <Campo label="Unidades (auto)"><input value={fmtNum((parseInt(editando.displays) || 0) * uniDisplay)} readOnly /></Campo>
           </div>
-          <div className="fg"><label>Observação</label><input value={editando.obs || ''} onChange={e => setEditando(v => ({ ...v, obs: e.target.value }))} /></div>
+          <Campo label="Observação"><input value={editando.obs || ''} onChange={e => setEditando(v => ({ ...v, obs: e.target.value }))} /></Campo>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn btn-primary" onClick={handleSalvarEdicao}>Salvar</button>
             <button className="btn btn-secondary" onClick={() => setEditando(null)}>Cancelar</button>
