@@ -3,6 +3,17 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // O cliente do Supabase e criado no carregamento do modulo e recusa URL vazia.
+  // Sem estas credenciais de faz-de-conta, qualquer teste que importe algo que
+  // encoste em supabase.js morre no import — e era isso que mantinha helpers
+  // como o buscarPaginado sem teste nenhum. Nao apontam para lugar nenhum: os
+  // testes nao fazem rede.
+  test: {
+    env: {
+      VITE_SUPABASE_URL: 'http://localhost:54321',
+      VITE_SUPABASE_ANON_KEY: 'chave-de-teste',
+    },
+  },
   build: {
     rollupOptions: {
       output: {
