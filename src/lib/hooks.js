@@ -14,6 +14,14 @@ const traduzErro = (error) => {
   return msg || 'erro desconhecido'
 }
 
+// A tela da revisao monta duas listas de CQ ao mesmo tempo: a tabela filtrada e a dos
+// ultimos 30 dias, que alimenta o lote e a embalagem. Cada useCQ tem seu proprio estado,
+// entao gravar por uma deixava a outra com dado velho — a embalagem em lote nao enxergava
+// a revisao que acabara de ser lancada e dizia que ja estava tudo embalado. Este aviso faz
+// todas as listas de CQ recarregarem juntas depois de qualquer gravacao.
+const EVENTO_CQ = 'midas:cq-alterado'
+const avisarCQ = () => { try { window.dispatchEvent(new Event(EVENTO_CQ)) } catch {} }
+
 // ── Funcionários ──────────────────────────────────────────────────────────────
 export function useFuncionarios() {
   const [data, setData] = useState([])
@@ -231,6 +239,12 @@ export function useCQ(filtros = {}) {
 
   useEffect(() => { fetch() }, [fetch])
 
+  // Recarrega quando qualquer outra lista de CQ grava algo (ver EVENTO_CQ acima)
+  useEffect(() => {
+    window.addEventListener(EVENTO_CQ, fetch)
+    return () => window.removeEventListener(EVENTO_CQ, fetch)
+  }, [fetch])
+
   // Nas quatro gravações abaixo vale a mesma divisão do registro de produção: o
   // admin escreve direto na tabela; a revisadora, que entra por PIN, escreve pelas
   // funções do banco, que conferem o token e assinam o lançamento com o nome dela.
@@ -241,7 +255,7 @@ export function useCQ(filtros = {}) {
       : await supabase.from('controle_qualidade').insert(payload)
     if (error) { toast.error('Erro ao registrar CQ: ' + traduzErro(error)); return false }
     toast.success('✓ CQ registrado!')
-    await fetch()
+    avisarCQ()
     return true
   }
 
@@ -254,7 +268,7 @@ export function useCQ(filtros = {}) {
       : await supabase.from('controle_qualidade').insert(payloads)
     if (error) { toast.error('Erro ao registrar o lote: ' + traduzErro(error)); return false }
     toast.success(`✓ ${payloads.length} ${payloads.length === 1 ? 'dia registrado' : 'dias registrados'}!`)
-    await fetch()
+    avisarCQ()
     return true
   }
 
@@ -284,7 +298,7 @@ export function useCQ(filtros = {}) {
 
     if (error) { toast.error('Erro ao atualizar: ' + traduzErro(error)); return false }
     toast.success('CQ atualizado!')
-    await fetch()
+    avisarCQ()
     return true
   }
 
@@ -297,18 +311,18 @@ export function useCQ(filtros = {}) {
         p_token: token,
         p_itens: itens.map(({ id, display, macos, embalado_em }) => ({ id, display, macos, embalado_em: embalado_em || null })),
       })
-      if (error) { toast.error('Erro ao gravar a embalagem: ' + traduzErro(error)); await fetch(); return false }
+      if (error) { toast.error('Erro ao gravar a embalagem: ' + traduzErro(error)); avisarCQ(); return false }
     } else {
       const erros = []
       for (const { id, ...campos } of itens) {
         const { error } = await supabase.from('controle_qualidade').update(campos).eq('id', id)
         if (error) erros.push(error.message)
       }
-      if (erros.length) { toast.error('Erro ao gravar a embalagem: ' + erros[0]); await fetch(); return false }
+      if (erros.length) { toast.error('Erro ao gravar a embalagem: ' + erros[0]); avisarCQ(); return false }
     }
 
     toast.success(`✓ Embalagem de ${itens.length} ${itens.length === 1 ? 'dia' : 'dias'} registrada!`)
-    await fetch()
+    avisarCQ()
     return true
   }
 
@@ -316,7 +330,7 @@ export function useCQ(filtros = {}) {
     const { error } = await supabase.from('controle_qualidade').delete().eq('id', id)
     if (error) { toast.error('Erro ao excluir: ' + error.message); return false }
     toast.success('Registro excluído')
-    await fetch()
+    avisarCQ()
     return true
   }
 
@@ -334,7 +348,7 @@ export function useCQ(filtros = {}) {
           .eq('data', dataDia)
     if (error) { toast.error('Erro ao enviar contestação: ' + traduzErro(error)); return false }
     toast.success('⚑ Contestação enviada ao administrador!')
-    await fetch()
+    avisarCQ()
     return true
   }
 
@@ -342,7 +356,7 @@ export function useCQ(filtros = {}) {
     const { error } = await supabase.from('controle_qualidade').update({ contestacao_status: 'resolvida' }).eq('id', id)
     if (error) { toast.error('Erro ao resolver contestação'); return false }
     toast.success('Contestação resolvida')
-    await fetch()
+    avisarCQ()
     return true
   }
 

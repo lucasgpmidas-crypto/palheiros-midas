@@ -123,6 +123,14 @@ export default function ControleCQ() {
       .sort((a, b) => a.data.localeCompare(b.data))
   }, [embLote.funcId, cqLote])
 
+  // Sem revisao lancada e com tudo ja embalado a lista fica vazia do mesmo jeito, mas
+  // sao situacoes opostas: uma pede que se lance a revisao antes, a outra diz que nao ha
+  // o que fazer. Dizer "ja embalado" para quem nao lancou nada manda a pessoa embora.
+  const temRevisaoEmb = useMemo(() => {
+    if (!embLote.funcId) return false
+    return cqLote.some(c => c.func_id === Number(embLote.funcId) && c.revisada > 0)
+  }, [embLote.funcId, cqLote])
+
   // Quantos dias cada monte tem, para a etiqueta da linha
   const tamanhoLote = useMemo(() => {
     const m = {}
@@ -268,7 +276,11 @@ export default function ControleCQ() {
             {!embLote.funcId ? (
               <div style={{ fontSize: 13, color: 'var(--text3)', padding: '14px 0' }}>Escolha o parceiro para ver o que está revisado e ainda não foi embalado.</div>
             ) : pendentesEmb.length === 0 ? (
-              <div className="alert a-success"><div>✓</div><div><strong>Nada pendente de embalagem</strong><span>Tudo que foi revisado deste parceiro nos últimos 30 dias já tem display lançado.</span></div></div>
+              temRevisaoEmb ? (
+                <div className="alert a-success"><div>✓</div><div><strong>Nada pendente de embalagem</strong><span>Tudo que foi revisado deste parceiro nos últimos 30 dias já tem display lançado.</span></div></div>
+              ) : (
+                <div className="alert a-warn"><div>⚠</div><div><strong>Nenhuma revisão lançada</strong><span>Este parceiro não tem nenhum dia revisado nos últimos 30 dias. Lance a revisão em “Vários dias” antes de embalar.</span></div></div>
+              )
             ) : (
               <>
                 {sugestaoEmb && (
