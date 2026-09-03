@@ -103,6 +103,12 @@ export default function MinhaProducao() {
   const ajudaQz = modalidade === 'cp' ? diasEntregaQz * cfg.ajudaCustoDia : 0
   const totalQzReceber = parceria.valor + ajudaQz
 
+  // Os mesmos indicadores do histórico, recortados na quinzena. Ficam separados de
+  // propósito: é isto que zera no corte e que o funcionário confere contra o papel.
+  const mediaQz    = regsQz.length ? Math.round(totalQz / regsQz.length) : 0
+  const diasMetaQz = f ? regsQz.filter(r => r.quantidade >= f.meta_diaria).length : 0
+  const perdaQz    = cqQz.reduce((s, c) => s + (c.perda || 0), 0)
+
   // Prêmios do programa: qualificação (6 primeiras quinzenas) e acumulado do ano.
   // Só o enrolador precisa disso — o admin e a finalização não carregam a apuração.
   const anoAtual = new Date().getFullYear()
@@ -208,6 +214,11 @@ export default function MinhaProducao() {
                 <div style={{ fontSize: 11, color: 'var(--text3)' }}>
                   unidades · {meuHoje.valor == null ? '⏳ a conferir' : fmtMoeda(Number(meuHoje.valor))}
                 </div>
+                {minhaPos > 0 && (
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                    {posLabel} de {rankHoje.length} no ranking de hoje
+                  </div>
+                )}
               </div>
             : <div style={{ fontSize: 13, color: 'var(--amber)' }}>⚠️ Sem registro hoje</div>
           }
@@ -285,25 +296,49 @@ export default function MinhaProducao() {
         </div>
       )}
 
-      {/* Stats */}
-      <div className="stat-grid mb16">
+      {/* Esta quinzena — tudo o que está aqui zera sozinho na virada do corte.
+          Fica separado do histórico porque é o que vira pagamento: misturar as
+          duas janelas fazia a tela mostrar dinheiro da quinzena já paga. */}
+      <div className="stat-sec-title">
+        Esta quinzena · {fmtData(qz.inicio, 'dd/MM')} a {fmtData(qz.fim, 'dd/MM')}
+      </div>
+      <div className="stat-grid">
         <div className="stat-card sc-green">
-          <div className="stat-label">💵 Quinzena Atual</div>
+          <div className="stat-label">💵 A Receber</div>
           <div className="stat-value sv-green" style={{ fontSize: 22 }}>{fmtMoeda(totalQzReceber)}</div>
-          <div className="stat-sub">{fmtMilheiros(parceria.milheiros)} milheiros conferidos · {fmtData(qz.inicio, 'dd/MM')} a {fmtData(qz.fim, 'dd/MM')}</div>
+          <div className="stat-sub">{fmtMilheiros(parceria.milheiros)} milheiros conferidos</div>
           <div className="stat-sub" style={{ marginTop: 2 }}>
-            {totalQz === 0 ? 'sem produção ainda'
+            {totalQz === 0 ? 'sem produção ainda nesta quinzena'
               : aguardandoQz > 0 ? <>⏳ {fmtNum(aguardandoQz)} un. aguardam conferência</>
               : '✔ tudo conferido'}
           </div>
         </div>
-        <div className="stat-card sc-gold">
-          <div className="stat-label">Posição Hoje</div>
-          <div className="stat-value sv-gold" style={{ fontSize: 28 }}>{posLabel}</div>
-          <div className="stat-sub">{minhaPos > 0 ? 'de ' + rankHoje.length + ' registros' : 'sem registro hoje'}</div>
+        <div className="stat-card sc-blue">
+          <div className="stat-label">Média Diária</div>
+          <div className="stat-value sv-blue">{fmtNum(mediaQz)}</div>
+          <div className="stat-sub">{regsQz.length === 0 ? 'sem registro ainda' : `un. por dia em ${regsQz.length} ${regsQz.length === 1 ? 'dia' : 'dias'}`}</div>
         </div>
+        <div className="stat-card sc-amber">
+          <div className="stat-label">Dias na Meta</div>
+          <div className="stat-value sv-amber">{diasMetaQz}/{regsQz.length}</div>
+          <div className="stat-sub">{regsQz.length === 0 ? 'sem registro ainda' : 'dias registrados na quinzena'}</div>
+        </div>
+        <div className="stat-card sc-red">
+          <div className="stat-label">Perda</div>
+          <div className="stat-value sv-red">{fmtNum(perdaQz)}</div>
+          <div className="stat-sub">descarte na conferência · não desconta do seu pagamento</div>
+        </div>
+      </div>
+
+      {/* Histórico — janela móvel de 30 dias, que atravessa o corte de propósito.
+          O aviso existe para ninguém confundir este valor com o da quinzena. */}
+      <div className="stat-sec-title">
+        Histórico · últimos 30 dias
+        <span className="stat-sec-note">atravessa quinzenas — não é o que você vai receber</span>
+      </div>
+      <div className="stat-grid">
         <div className="stat-card sc-green">
-          <div className="stat-label">Valor 30 Dias</div>
+          <div className="stat-label">Valor Conferido</div>
           <div className="stat-value sv-green" style={{ fontSize: 20 }}>{fmtMoeda(valor30)}</div>
           <div className="stat-sub">{fmtNum(total30)} un. produzidas{diasSemConf > 0 ? ` · ${diasSemConf} ${diasSemConf === 1 ? 'dia aguarda' : 'dias aguardam'} conferência` : ''}</div>
         </div>
@@ -315,10 +350,10 @@ export default function MinhaProducao() {
         <div className="stat-card sc-amber">
           <div className="stat-label">Dias na Meta</div>
           <div className="stat-value sv-amber">{diasMeta}/{meusRegs.length}</div>
-          <div className="stat-sub">nos últimos 30 dias</div>
+          <div className="stat-sub">dias registrados em 30 dias</div>
         </div>
         <div className="stat-card sc-red">
-          <div className="stat-label">Perda 30 Dias</div>
+          <div className="stat-label">Perda</div>
           <div className="stat-value sv-red">{fmtNum(perda30)}</div>
           <div className="stat-sub">descarte na conferência · não desconta do seu pagamento</div>
         </div>
