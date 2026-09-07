@@ -64,7 +64,6 @@ export default function Registro() {
   const MEDALS = ['🥇', '🥈', '🥉']
   const total = regsData.reduce((s, r) => s + r.quantidade, 0)
   const valor = regsData.reduce((s, r) => s + (Number(r.valor) || 0), 0)
-  const semConfDia = regsData.filter(r => r.valor == null).length
 
   return (
     <div>

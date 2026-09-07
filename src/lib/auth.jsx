@@ -56,7 +56,8 @@ export function AuthProvider({ children }) {
       // Quem é fica gravado no aparelho (nunca o PIN, nunca o token): como cada um
       // usa o próprio celular, a tela de login abre direto no teclado do PIN em vez
       // da lista de nomes. Trocar de pessoa é o "não sou eu" da tela de login.
-      const { token, ...semSegredo } = result.funcionario
+      // O _token so existe para ficar de FORA do semSegredo. Nao apague.
+      const { token: _token, ...semSegredo } = result.funcionario
       try { localStorage.setItem(CHAVE_LEMBRADO, JSON.stringify(semSegredo)) } catch {}
     }
     return result

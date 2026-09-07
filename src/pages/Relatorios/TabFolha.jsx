@@ -4,7 +4,7 @@ import { useRegistros, useConfig, useCQ } from '../../lib/hooks'
 import { fmtMoeda, fmtNum, fmtData, getQuinzena, getQuinzenaAtual, exportCSV, exportXLSX, isProducao, calcParceria, fmtMilheiros, corQualidade } from '../../lib/utils'
 import { MEDALS } from './medalhas'
 
-export default function TabFolha({ funcionarios, valorMil }) {
+export default function TabFolha({ funcionarios }) {
   const cfg = useConfig()
   const { quinzenaD1, quinzenaD2 } = cfg
   const _q0 = getQuinzenaAtual(quinzenaD1, quinzenaD2)

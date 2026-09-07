@@ -102,7 +102,7 @@ function useOnline() {
 }
 
 export default function Layout() {
-  const { sair, isAdmin, isFunc, isFinalizacao, funcSession, session } = useAuth()
+  const { sair, isAdmin, isFinalizacao, funcSession, session } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)

@@ -52,9 +52,26 @@ export default defineConfig([
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      // Orcamento de tamanho e complexidade: tudo "warn" de proposito. Sao
-      // numeros para comecar conversa sobre fatiamento, nao portao - cada um
-      // sobe para "error" quando a contagem dele chegar a zero.
+      // ORCAMENTO DE TAMANHO E COMPLEXIDADE - DIVIDA RASTREADA
+      //
+      // Medido em 07/09/2026, depois da queima de avisos: 58 avisos em 26
+      // arquivos. Baseline por regra, para a contagem so poder cair:
+      //   complexity ............. 24
+      //   max-lines-per-function . 15
+      //   max-statements ......... 15
+      //   max-nested-callbacks ....3
+      //   max-params ..............1
+      //   max-depth ...............0  (ja esta zerada)
+      //
+      // Ficam em "warn" por decisao explicita, nao por esquecimento: zerar
+      // isso significa fatiar praticamente toda tela do app (12 componentes
+      // tem entre 160 e 263 linhas de corpo), e boa parte do numero e JSX -
+      // max-lines-per-function conta a arvore de JSX, entao uma tela sem
+      // complexidade nenhuma estoura o limite so por ser grande.
+      //
+      // Cada regra sobe para "error" quando a contagem dela chegar a zero.
+      // Nenhuma delas tem eslint-disable em lugar nenhum do projeto, e nao
+      // deve ganhar: a divida fica visivel aqui, contada.
       complexity: ["warn", 12],
       "max-depth": ["warn", 4],
       "max-statements": ["warn", 20],

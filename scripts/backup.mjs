@@ -26,7 +26,7 @@ const raiz = fileURLToPath(new URL('..', import.meta.url))
 const env = Object.fromEntries(
   readFileSync(join(raiz, '.env'), 'utf8')
     .split('\n')
-    .map(l => l.replace(/^﻿/, '').trim())
+    .map(l => l.replace(/^\uFEFF/, '').trim())
     .filter(l => l && !l.startsWith('#'))
     .map(l => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()])
 )

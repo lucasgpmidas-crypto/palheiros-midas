@@ -14,7 +14,7 @@ export default function Historico() {
   const [confirmDel, setConfirmDel] = useState(null)
 
   const { funcionarios } = useFuncionarios()
-  const { valorMil } = useConfig()
+  const { valorMil: _valorMil } = useConfig()
   const { registros, loading, excluir } = useRegistros({ funcId: aplicados.funcId || undefined, dataInicio: aplicados.dataInicio, dataFim: aplicados.dataFim })
   const { cqRegistros } = useCQ({ funcId: aplicados.funcId || undefined, dataInicio: aplicados.dataInicio, dataFim: aplicados.dataFim })
 

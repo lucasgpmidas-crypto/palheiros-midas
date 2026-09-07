@@ -7,7 +7,7 @@ import { ptBR } from 'date-fns/locale'
 import { MEDALS } from './medalhas'
 import ResumoCards from './ResumoCards'
 
-export default function TabMensal({ funcionarios, valorMil }) {
+export default function TabMensal({ funcionarios }) {
   const [mes, setMes] = useState(getHoje().substring(0, 7))
   const { inicio, fim } = getMes(mes)
   const { registros, loading } = useRegistros({ dataInicio: inicio, dataFim: fim })

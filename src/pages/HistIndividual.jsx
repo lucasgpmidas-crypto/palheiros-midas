@@ -11,7 +11,7 @@ import { fmtValorDia, getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avata
 export default function HistIndividual() {
   const { isAdmin, funcSession } = useAuth()
   const { funcionarios } = useFuncionarios()
-  const { valorMil } = useConfig()
+  const { valorMil: _valorMil } = useConfig()
 
   // Pré-selecionar funcionário logado
   const [funcId, setFuncId] = useState(funcSession?.id ? String(funcSession.id) : '')
