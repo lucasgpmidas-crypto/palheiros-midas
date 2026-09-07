@@ -5,7 +5,7 @@ import { getHoje, getOntem, fmtMoeda, fmtNum, pctMeta, corPct, exportCSV, export
 import { MEDALS } from './medalhas'
 import ResumoCards from './ResumoCards'
 
-export default function TabDiario({ funcionarios, valorMil }) {
+export default function TabDiario() {
   const [data, setData] = useState(getHoje())
   const { registros, loading } = useRegistros({ data })
   const total = registros.reduce((s, r) => s + r.quantidade, 0)

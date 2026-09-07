@@ -3,7 +3,7 @@ import Campo from '../components/Campo'
 import { useFuncionarios, useConfig, useApuracaoPremios } from '../lib/hooks'
 import { supabase, buscarPaginado } from '../lib/supabase'
 import {
-  fmtMoeda, fmtNum, fmtData, fmtMilheiros, corQualidade, exportCSV, exportXLSX,
+  fmtMoeda, fmtData, fmtMilheiros, corQualidade, exportCSV, exportXLSX,
 } from '../lib/utils'
 
 // Indicadores de acompanhamento do programa (item 9.1 do documento v3), todos

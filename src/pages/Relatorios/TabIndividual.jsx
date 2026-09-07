@@ -4,7 +4,7 @@ import { useRegistros } from '../../lib/hooks'
 import { getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, exportCSV, exportXLSX, isProducao } from '../../lib/utils'
 import { format, subDays } from 'date-fns'
 
-export default function TabIndividual({ funcionarios, valorMil }) {
+export default function TabIndividual({ funcionarios }) {
   const [funcId, setFuncId] = useState('')
   const [periodo, setPeriodo] = useState('30')
   const ini = format(subDays(new Date(), Number(periodo)), 'yyyy-MM-dd')

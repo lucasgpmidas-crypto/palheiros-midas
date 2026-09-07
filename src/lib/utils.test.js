@@ -246,7 +246,7 @@ describe('calcQualificacao — as 6 primeiras quinzenas', () => {
 // ── Prêmios anuais ───────────────────────────────────────────────────────────
 describe('calcPremiosAnuais', () => {
   const ano = (milheirosPorQuinzena, qualidade = 0.98) =>
-    Array.from({ length: 24 }, (_, i) => resumoPeriodo({
+    Array.from({ length: 24 }, (_, _i) => resumoPeriodo({
       inicio: '2026-01-01', fim: '2026-01-07',
       entregue: milheirosPorQuinzena * 1000,
       revisada: Math.round(milheirosPorQuinzena * 1000 * qualidade),

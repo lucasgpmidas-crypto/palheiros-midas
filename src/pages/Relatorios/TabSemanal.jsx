@@ -5,7 +5,7 @@ import { getHoje, fmtMoeda, fmtNum, fmtData, getSemana, exportCSV, exportXLSX, i
 import { MEDALS } from './medalhas'
 import ResumoCards from './ResumoCards'
 
-export default function TabSemanal({ funcionarios, valorMil }) {
+export default function TabSemanal({ funcionarios }) {
   const [data, setData] = useState(getHoje())
   const { inicio, fim } = getSemana(data)
   const { registros, loading } = useRegistros({ dataInicio: inicio, dataFim: fim })
