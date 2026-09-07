@@ -54,8 +54,10 @@ export default defineConfig([
       ],
       // ORCAMENTO DE TAMANHO E COMPLEXIDADE - DIVIDA RASTREADA
       //
-      // Medido em 07/09/2026, depois da queima de avisos: 58 avisos em 26
-      // arquivos. Baseline por regra, para a contagem so poder cair:
+      // Medido em 07/09/2026, depois da queima de avisos. O projeto inteiro
+      // tem 65 avisos em 29 arquivos; DESTES, 58 em 26 arquivos sao deste
+      // bloco de tamanho/complexidade. Os outros 7 sao das duas regras
+      // quality mais abaixo. Baseline por regra, para a contagem so cair:
       //   complexity ............. 24
       //   max-lines-per-function . 15
       //   max-statements ......... 15
@@ -101,7 +103,11 @@ export default defineConfig([
       "quality/no-direct-data-access": [
         "warn",
         {
-          modules: ["../lib/supabase", "./supabase"],
+          // Os tres niveis existem porque telas em subpasta (MinhaProducao/,
+          // ControleCQ/, Relatorios/) alcancam o mesmo modulo por um caminho
+          // mais longo. Faltando o ../../ a regra fica cega justamente para
+          // os arquivos movidos - foi o que aconteceu entre 07/09 e a queima.
+          modules: ["../lib/supabase", "../../lib/supabase", "./supabase"],
           bindings: ["supabase"],
           layers: ["/src/pages/", "/src/components/"],
           extensions: [".jsx"],
