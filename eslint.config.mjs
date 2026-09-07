@@ -74,7 +74,6 @@ export default defineConfig([
         {
           max: 350,
           ignore: [
-            "src/pages/ControleCQ.jsx", // 633 linhas
             "src/pages/Relatorios.jsx", // 438 linhas
             "src/lib/utils.js", // 372 linhas
           ],
