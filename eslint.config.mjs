@@ -64,20 +64,12 @@ export default defineConfig([
         { max: 150, skipBlankLines: true, skipComments: true },
       ],
       "max-nested-callbacks": ["warn", 3],
-      // Teto de 350 linhas. Cinco arquivos ja nasceram acima dele; em vez de
-      // rebaixar a regra inteira para "warn", eles estao listados aqui pelo
-      // nome com o tamanho medido em 07/09/2026. A regra fica em "error"
-      // para todo o resto - arquivo novo ja nasce dentro do teto. Cada linha
-      // apagada daqui e uma divida quitada; a lista deve so encolher.
-      "quality/max-lines": [
-        "error",
-        {
-          max: 350,
-          ignore: [
-            "src/lib/utils.js", // 372 linhas
-          ],
-        },
-      ],
+      // Teto de 350 linhas. Nasceu com cinco devedores listados numa lista de
+      // excecao; os cinco foram quebrados e a lista chegou a zero em
+      // 07/09/2026, entao ela saiu daqui. A regra agora vale para todo
+      // arquivo, sem excecao - e e para continuar assim: quem estourar o
+      // teto quebra o arquivo, nao acrescenta uma linha de excecao aqui.
+      "quality/max-lines": ["error", { max: 350 }],
       // Baseline: 2 violacoes (src/components/ErroTela.jsx,
       // src/lib/supabase.js). O projeto ainda nao tem adaptador de log, entao
       // nao existe bloco "off" apontando para um - quando existir, ele entra
