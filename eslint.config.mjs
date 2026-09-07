@@ -74,6 +74,10 @@ export default defineConfig([
       // Cada regra sobe para "error" quando a contagem dela chegar a zero.
       // Nenhuma delas tem eslint-disable em lugar nenhum do projeto, e nao
       // deve ganhar: a divida fica visivel aqui, contada.
+      //
+      // Quem faz a contagem so poder cair e o `--max-warnings 65` no script
+      // de lint do package.json: passou de 65, o comando falha. Ao baixar a
+      // divida, baixe o numero la junto - senao ele vira folga silenciosa.
       complexity: ["warn", 12],
       "max-depth": ["warn", 4],
       "max-statements": ["warn", 20],

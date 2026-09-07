@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Campo from '../components/Campo'
 import { subDays, format } from 'date-fns'
-import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
+import { useRegistros, useFuncionarios, useCQ } from '../lib/hooks'
 import { fmtValorDia, getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, exportCSV } from '../lib/utils'
 import ConfirmModal from '../components/ConfirmModal'
 
@@ -14,7 +14,6 @@ export default function Historico() {
   const [confirmDel, setConfirmDel] = useState(null)
 
   const { funcionarios } = useFuncionarios()
-  const { valorMil: _valorMil } = useConfig()
   const { registros, loading, excluir } = useRegistros({ funcId: aplicados.funcId || undefined, dataInicio: aplicados.dataInicio, dataFim: aplicados.dataFim })
   const { cqRegistros } = useCQ({ funcId: aplicados.funcId || undefined, dataInicio: aplicados.dataInicio, dataFim: aplicados.dataFim })
 

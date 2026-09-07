@@ -11,7 +11,7 @@
     "migrar": "node scripts/migrar.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 65",
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {

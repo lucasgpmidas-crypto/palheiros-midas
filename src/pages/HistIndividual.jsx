@@ -3,7 +3,7 @@ import Campo from '../components/Campo'
 import Grafico from '../components/Grafico'
 import { subDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { useRegistros, useFuncionarios, useConfig, useCQ } from '../lib/hooks'
+import { useRegistros, useFuncionarios, useCQ } from '../lib/hooks'
 import { useAuth } from '../lib/auth'
 import { fmtValorDia, getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avatarCor, getIniciais, exportCSV, isProducao } from '../lib/utils'
 
@@ -11,7 +11,6 @@ import { fmtValorDia, getHoje, fmtMoeda, fmtNum, fmtData, pctMeta, corPct, avata
 export default function HistIndividual() {
   const { isAdmin, funcSession } = useAuth()
   const { funcionarios } = useFuncionarios()
-  const { valorMil: _valorMil } = useConfig()
 
   // Pré-selecionar funcionário logado
   const [funcId, setFuncId] = useState(funcSession?.id ? String(funcSession.id) : '')
